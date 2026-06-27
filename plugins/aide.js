@@ -119,6 +119,12 @@ const AIDE = {
         exemple: "!rang paul",
         category: "joueurs"
     },
+    collection: {
+        usage: "!collection <pseudo>",
+        description: "Affiche la liste complète des cartes possédées par un joueur (achetées via !acheter).",
+        exemple: "!collection paul",
+        category: "joueurs"
+    },
 
     // --- Cartes ---
     tirage: {

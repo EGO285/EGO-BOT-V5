@@ -23,7 +23,7 @@ _▲ Tape !aide <commande> pour le détail_
 !timer <min> · !latence · !pause · !go · !stop
 
 ⟡ *JOUEUR*
-!new <pseudo> · !fiche <pseudo> · !classement · !rang
+!new <pseudo> · !fiche <pseudo> · !classement · !rang · !collection <pseudo>
 
 ⟡ *CARTES*
 !tirage c/b/a/s/random · !carte <nom> · !boutique · !acheter <nom> <pseudo> · !rules
