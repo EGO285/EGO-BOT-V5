@@ -1,0 +1,415 @@
+[
+    {
+        "nom": "Boruto Uzumaki",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/WWRF3YgN/569909086986.jpg"
+    },
+    {
+        "nom": "Metal Lee",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/67h5yfT3/8292b03f4651.jpg"
+    },
+    {
+        "nom": "Inojin Yamanaka",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/Z1hD3XJG/5940451ef30d.jpg"
+    },
+    {
+        "nom": "Shikadai Nara",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/4wVPqbWr/7b7235f35e2b.jpg"
+    },
+    {
+        "nom": "Naruto Uzumaki(BARYON MODE)",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/zhMM9Qwy/96b4957fbeee.jpg"
+    },
+    {
+        "nom": "Naruto Uzumaki(ado)",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://i.ibb.co/qL7tXVjP/ed0fbf388089.jpg"
+    },
+    {
+        "nom": "Sasuke Uchiha(tenue noire)",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://i.ibb.co/7NzSxYhz/bdc283de9026.jpg"
+    },
+    {
+        "nom": "Sasuke Uchiha(hebi)",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/N663qPpp/f514c067af1d.jpg"
+    },
+    {
+        "nom": "Sakura Haruno",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/nqqXjK49/2394d4165141.jpg"
+    },
+    {
+        "nom": "Kakashi Hatake",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://i.ibb.co/zH8LZRPm/0ed3ed4c3df7.jpg"
+    },
+    {
+        "nom": "Borushiki",
+        "anime": "boruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/mC9DPnsR/e42c1eb7e8f0.jpg"
+    },
+    {
+        "nom": "Rock Lee",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/C3Bs5dLh/c14b2b3b78f4.jpg"
+    },
+    {
+        "nom": "Hinata Hyuga",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/Ggb9WM7/be4f0d5ce9c0.jpg"
+    },
+    {
+        "nom": "tenten",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/k6k1NC5m/9ebe51deb41f.jpg"
+    },
+    {
+        "nom": "Neji Hyuga",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/JjZQvXfF/e6fdad8199d9.jpg"
+    },
+    {
+        "nom": "Sarada Uchiha",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/1YS4VLXf/a12ef8bc6629.jpg"
+    },
+    {
+        "nom": "Gaara(enfant",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/VYBLWrSN/e58167edaf9c.jpg"
+    },
+    {
+        "nom": "Inoj Yamanaka",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/Y4sLMF8n/70d2027369b8.jpg"
+    },
+    {
+        "nom": "Kawaki",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/qYm3LMF2/a9a157a38410.jpg"
+    },
+    {
+        "nom": "mitsuki",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/twf3yfSF/65b5370b6589.jpg"
+    },
+    {
+        "nom": "Naruto Uzumaki(enfant)",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/6c8N8Fqz/3c92c412844c.jpg"
+    },
+    {
+        "nom": "Rin nohara",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/nqxWnYwY/3d0bb876e194.jpg"
+    },
+    {
+        "nom": "eida",
+        "anime": "Boruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/qYbCTDrw/9c34f61ce573.jpg"
+    },
+    {
+        "nom": "Boruto Uzumaki(Kama)",
+        "anime": "Boruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/QvpSHVzC/d9c97b9982fb.jpg"
+    },
+    {
+        "nom": "code",
+        "anime": "Boruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/xK4mkzf5/cec1fceae5d0.jpg"
+    },
+    {
+        "nom": "jigen",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/zTjP8YLD/5922dc4076bd.jpg"
+    },
+    {
+        "nom": "isshiki Otsutsuki",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/d4RtWFxd/7d086a872189.jpg"
+    },
+    {
+        "nom": "delta",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/1YC5kvky/506751767038.jpg"
+    },
+    {
+        "nom": "deepa",
+        "anime": "Boruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/B2Zx3wPD/e04bf12f1728.jpg"
+    },
+    {
+        "nom": "Sai",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/BV0ZP6GL/dedf1b21e2a5.jpg"
+    },
+    {
+        "nom": "boruto & Naruto",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/d0W1RKxK/0c2053401b14.jpg"
+    },
+    {
+        "nom": "Shin",
+        "anime": "Boruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://i.ibb.co/xtVzMKzq/f8d793ac9d8b.jpg"
+    },
+    {
+        "nom": "Naruto Uzumaki(six paths mode)",
+        "anime": "naruto",
+        "rarete": "S",
+        "prix": [],
+        "image": " https://i.ibb.co/KgVYdPS/244366fb167b.jpg"
+    },
+    {
+        "nom": "Himawari Uzumaki",
+        "anime": "Boruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/FQ1Q6dP/0bb275b40c88.jpg"
+    },
+    {
+        "nom": "Boruto Uzumaki(adulte)",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/V0FvWYW8/8f56afa96b8b.jpg"
+    },
+    {
+        "nom": "Momoshiki Otsutsuki",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/xSRsC6BN/bfc0cb40c706.jpg"
+    },
+    {
+        "nom": "Naruto Uzumaki(vermillion mode)",
+        "anime": "naruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/N60ZCnXw/3b048adb1e56.jpg"
+    },
+    {
+        "nom": "Gai Maito",
+        "anime": "naruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/Kc41Hm85/08738ca17a99.jpg"
+    },
+    {
+        "nom": "Kaguya Otsutsuki",
+        "anime": "naruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/BKBvXmgC/4ff2f5c6685c.jpg"
+    },
+    {
+        "nom": "Konohamaru Sarutobi",
+        "anime": "Boruto",
+        "rarete": "B",
+        "prix": [],
+        "image": " https://i.ibb.co/yn79msn4/edbf9afe95fe.jpg"
+    },
+    {
+        "nom": "Daemon",
+        "anime": "Boruto",
+        "rarete": "S",
+        "prix": [],
+        "image": "https://i.ibb.co/zW2NKm7Q/c57ae697db1e.jpg"
+    },
+    {
+        "nom": "Itachi Uchiha(edo tensei)",
+        "anime": "naruto",
+        "rarete": "A",
+        "prix": [],
+        "image": "https://i.ibb.co/nMh40ySH/8015e71aa57f.jpg"
+    },
+    {
+        "nom": "Itachi Uchiha(Akatsuki)",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": " https://i.ibb.co/p6pf8mvk/f514df0b6387.jpg"
+    },
+    {
+        "nom": "Boro",
+        "anime": "Boruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://i.ibb.co/tT74KgXY/4cbe9b03be8b.jpg"
+    },
+    {
+        "nom": "Suigetsu",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/20NXqy0s/2ba66552e8cd.jpg"
+    },
+    {
+        "nom": "Jirobo",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://i.ibb.co/NdNKkVQ1/1a40642e96b1.jpg"
+    },
+    {
+        "nom": "Kiba Inuzuka",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/nwq3yo.jpg"
+    },
+    {
+        "nom": "Minato Namikaze(Jonin)",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/e3ivz6.jpg"
+    },
+    {
+        "nom": "Shikamaru Nara",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/pr7y9y.jpg"
+    },
+    {
+        "nom": "Choji Akimichi",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/4oprob.jpg"
+    },
+    {
+        "nom": "Kankuro",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/gf27rt.jpg"
+    },
+    {
+        "nom": "kimimaro kaguya",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/vys58m.jpg"
+    },
+    {
+        "nom": "Kidomaru",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/y1ectt.jpg"
+    },
+    {
+        "nom": "Tayuya",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/1t3pol.jpg"
+    },
+    {
+        "nom": "Sakon & Ukon",
+        "anime": "naruto",
+        "rarete": "C",
+        "prix": [],
+        "image": "https://files.catbox.moe/whlhpi.jpg"
+    },
+    {
+        "nom": "Kisame Hoshigaki",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/kz1547.jpg"
+    },
+    {
+        "nom": "Hidan",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/fswupw.jpg"
+    },
+    {
+        "nom": "Tobi",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/5f99e3.jpg"
+    },
+    {
+        "nom": "Konan",
+        "anime": "naruto",
+        "rarete": "B",
+        "prix": [],
+        "image": "https://files.catbox.moe/royrbo.jpg"
+    }
+]

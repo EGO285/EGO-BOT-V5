@@ -1,0 +1,27 @@
+const { getUser, buildFiche } = require("../utils/users");
+
+module.exports = {
+    command: "!fiche",
+    buildFiche,
+
+    async handler(sock, m, text, { senderJid, senderNumber }) {
+        const from = m.key.remoteJid;
+
+        let name = text.replace("!fiche", "").trim().toLowerCase();
+
+        if (!name) {
+            return sock.sendMessage(from, { text: "❌ Exemple : *!fiche paul*" });
+        }
+
+        const user = await getUser(name);
+
+        if (!user) {
+            return sock.sendMessage(from, { text: `❌ Joueur *${name}* introuvable.` });
+        }
+
+        await sock.sendMessage(from, {
+            text: buildFiche(user) + `\n\n_Consulté par @${senderNumber}_`,
+            mentions: [senderJid]
+        });
+    }
+};
