@@ -139,6 +139,12 @@ const AIDE = {
         exemple: "!boutique",
         category: "cartes"
     },
+    acheter: {
+        usage: "!acheter <nom de la carte> <pseudo>",
+        description: "Achète une carte de la boutique. Le bot paie automatiquement avec du Ryo ou des Stars selon ce que le joueur peut se permettre. La carte achetée s'ajoute à l'inventaire visible dans !fiche.",
+        exemple: "!acheter Naruto Uzumaki paul",
+        category: "cartes"
+    },
     rules: {
         usage: "!rules",
         description: "Affiche les règles du bot/RP, sous forme d'images.",

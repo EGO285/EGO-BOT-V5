@@ -26,7 +26,7 @@ _▲ Tape !aide <commande> pour le détail_
 !new <pseudo> · !fiche <pseudo> · !classement · !rang
 
 ⟡ *CARTES*
-!tirage c/b/a/s/random · !carte <nom> · !boutique · !rules
+!tirage c/b/a/s/random · !carte <nom> · !boutique · !acheter <nom> <pseudo> · !rules
 
 ⟡ *CASINO*
 !casino · !pof · !machine · !des · !roulette · !hl

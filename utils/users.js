@@ -88,6 +88,10 @@ async function updateRanking(db) {
 }
 
 function buildFiche(u) {
+    const inventaire = Array.isArray(u.inventaire) && u.inventaire.length
+        ? u.inventaire.map(nom => `🎴 ${nom}`).join("\n")
+        : "_Aucune carte achetée pour le moment._";
+
     return `*_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*
 *_🔶SHINOBI STORM RP🎮_*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
@@ -113,6 +117,7 @@ _RANG *SUL🏅*: ${u.rank || "N/A"}ème_
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_🛍🛒ACHATS CARDS: _*
 ▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰
+${inventaire}
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
 }
 
@@ -170,6 +175,78 @@ async function applyCasinoResult(key, user, mise, gain) {
     return user;
 }
 
+// ──────────────────────────────────────────────
+// Parse une entrée de prix telle que stockée dans cartes.json,
+// ex: "8000🔶" -> { montant: 8000, devise: "money" }
+//     "3⭐"    -> { montant: 3, devise: "stars" }
+// Une chaîne sans emoji ni reconnaissable est ignorée (retourne null).
+// ──────────────────────────────────────────────
+function parsePrix(entree) {
+    if (typeof entree !== "string") return null;
+
+    const nombre = parseInt(entree.replace(/[^\d]/g, ""), 10);
+    if (isNaN(nombre)) return null;
+
+    if (entree.includes("⭐")) return { montant: nombre, devise: "stars" };
+    if (entree.includes("🔶")) return { montant: nombre, devise: "money" };
+
+    // Pas d'emoji : par défaut on considère que c'est du Ryo
+    return { montant: nombre, devise: "money" };
+}
+
+// ──────────────────────────────────────────────
+// Vérifie qu'un achat de carte est possible pour ce joueur, et si oui,
+// l'exécute (déduction + ajout à l'inventaire + sauvegarde).
+// Le joueur a le choix de la devise quand la carte propose plusieurs prix :
+// on prend le premier prix de la liste que le joueur peut se permettre.
+// ──────────────────────────────────────────────
+async function checkAndBuyCard(pseudo, carte) {
+    if (!pseudo) {
+        return { ok: false, error: "❌ Indique ton pseudo. Exemple : *!acheter Naruto Uzumaki paul*" };
+    }
+
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable. Crée ta fiche avec *!new ${pseudo}*.` };
+    }
+
+    const prixListe = Array.isArray(carte.prix) ? carte.prix.map(parsePrix).filter(Boolean) : [];
+
+    if (!prixListe.length) {
+        return { ok: false, error: `❌ La carte *${carte.nom}* n'a pas encore de prix défini. Demande à un admin de le configurer.` };
+    }
+
+    // Cherche le premier prix (Ryo ou Stars) que le joueur peut payer
+    const choix = prixListe.find(p =>
+        (p.devise === "money" && (user.money || 0) >= p.montant) ||
+        (p.devise === "stars" && (user.stars || 0) >= p.montant)
+    );
+
+    if (!choix) {
+        const detail = prixListe.map(p => p.devise === "money" ? `${p.montant}🔶` : `${p.montant}⭐`).join(" ou ");
+        return {
+            ok: false,
+            error: `❌ Fonds insuffisants pour *${carte.nom}*.\n💰 Bourse : *${user.money}🔶* — ⭐ Stars : *${user.stars}*\n🎯 Prix demandé : *${detail}*`
+        };
+    }
+
+    if (choix.devise === "money") {
+        user.money = (user.money || 0) - choix.montant;
+    } else {
+        user.stars = (user.stars || 0) - choix.montant;
+    }
+
+    if (!Array.isArray(user.inventaire)) user.inventaire = [];
+    user.inventaire.push(carte.nom);
+    user.cards = user.inventaire.length;
+
+    await saveUser(key, user);
+
+    return { ok: true, user, prixPaye: choix };
+}
+
 module.exports = {
     getUser,
     saveUser,
@@ -180,4 +257,6 @@ module.exports = {
     buildInterface,
     checkCanPlay,
     applyCasinoResult,
+    parsePrix,
+    checkAndBuyCard,
 };
