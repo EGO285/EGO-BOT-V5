@@ -55,17 +55,33 @@ module.exports = {
 
         const carte = result;
         const rareteLabel = RARETE_LABELS[carte.rarete] || carte.rarete;
+        const imageUrl = (carte.image || "").trim();
 
-        await sock.sendMessage(from, {
-            image: { url: carte.image },
-            caption:
+        try {
+            await sock.sendMessage(from, {
+                image: { url: imageUrl },
+                caption:
 `🎴 *FICHE CARTE*
 _Consultée par @${senderNumber}_
 
 👤 *Nom* : ${carte.nom}
 📺 *Anime* : ${carte.anime}
 ⭐ *Rareté* : ${rareteLabel}`,
-            mentions: [senderJid]
-        });
+                mentions: [senderJid]
+            });
+        } catch (err) {
+            console.error(`[!carte] Erreur d'envoi pour "${carte.nom}":`, err?.message || err);
+            // Fallback texte si l'image ne charge pas, pour ne jamais planter le bot
+            await sock.sendMessage(from, {
+                text:
+`🎴 *FICHE CARTE* (image indisponible ⚠️)
+_Consultée par @${senderNumber}_
+
+👤 *Nom* : ${carte.nom}
+📺 *Anime* : ${carte.anime}
+⭐ *Rareté* : ${rareteLabel}`,
+                mentions: [senderJid]
+            });
+        }
     }
 };

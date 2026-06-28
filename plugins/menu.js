@@ -13,26 +13,54 @@ module.exports = {
 _▲ En ligne👤:_ @${senderNumber}
 _▲ Tape !aide <commande> pour le détail_
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-⟡ *COMBAT*
-!combat · !verdict · !win · !lose · !stopfight
+⟡ *COMBAT* ⚔️
+⚔️ !combat
+🏁 !verdict
+🏆 !win
+😭 !lose
+🛑 !stopfight
 
-⟡ *DUEL*
-!duel debut @j1 vs @j2 · !duel off · !historique
+⟡ *DUEL* 🤺
+🤺 !duel debut @j1 vs @j2
+❌ !duel off
+📜 !historique
 
-⟡ *CHRONO*
-!timer <min> · !latence · !pause · !go · !stop
+⟡ *CHRONO* ⏱️
+⏱️ !timer <min>
+📡 !latence
+⏸️ !pause
+▶️ !go
+⏹️ !stop
 
-⟡ *JOUEUR*
-!new <pseudo> · !fiche <pseudo> · !classement · !rang · !collection <pseudo>
+⟡ *JOUEUR* 👤
+🆕 !new <pseudo>
+🪪 !fiche <pseudo>
+🏅 !classement
+📊 !rang <pseudo>
+🃏 !collection <pseudo>
 
-⟡ *CARTES*
-!tirage c/b/a/s/random · !carte <nom> · !boutique · !acheter <nom> <pseudo> · !rules
+⟡ *CARTES* 🎴
+🎴 !tirage c/b/a/s/random
+🔎 !carte <nom>
+🛍️ !boutique
+💸 !acheter <nom> <pseudo>
+📖 !rules
 
-⟡ *CASINO*
-!casino · !pof · !machine · !des · !roulette · !hl
+⟡ *CASINO* 🎰
+🎰 !casino
+🪙 !pof
+🎰 !machine
+🎲 !des
+🎡 !roulette
+🃏 !hl
 
-⟡ *ADMIN*
-!delete · !addmoney · !addstars · !setstats · !reset · !photobot
+⟡ *ADMIN* 🛡️
+🗑️ !delete
+💰 !addmoney
+⭐ !addstars
+🛡️ !setstats
+🔄 !reset
+🤖 !photobot
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
 
