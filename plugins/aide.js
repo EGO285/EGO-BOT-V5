@@ -125,6 +125,18 @@ const AIDE = {
         exemple: "!collection paul",
         category: "joueurs"
     },
+    daily: {
+        usage: "!daily <pseudo>",
+        description: "Réclame une récompense quotidienne (Ryo + Stars). Une seule fois toutes les 24h par joueur.",
+        exemple: "!daily paul",
+        category: "joueurs"
+    },
+    logs: {
+        usage: "!logs <pseudo>",
+        description: "Affiche les 15 dernières transactions d'un joueur (achats, ventes, échanges, daily, actions admin).",
+        exemple: "!logs paul",
+        category: "joueurs"
+    },
 
     // --- Cartes ---
     tirage: {
@@ -149,6 +161,18 @@ const AIDE = {
         usage: "!acheter <nom de la carte> <pseudo>",
         description: "Achète une carte de la boutique. Le bot paie automatiquement avec du Ryo ou des Stars selon ce que le joueur peut se permettre. La carte achetée s'ajoute à l'inventaire visible dans !fiche.",
         exemple: "!acheter Naruto Uzumaki paul",
+        category: "cartes"
+    },
+    vendre: {
+        usage: "!vendre <nom de la carte> <pseudo>",
+        description: "Revend une carte de sa collection contre 50% de son prix d'achat en Ryo.",
+        exemple: "!vendre Naruto Uzumaki paul",
+        category: "cartes"
+    },
+    echange: {
+        usage: "!echange <pseudo> <pseudo destinataire> <nom de la carte>",
+        description: "Propose un échange gratuit d'une carte à un autre joueur. Le destinataire doit confirmer avec !echange accept <pseudo proposant>.",
+        exemple: "!echange paul julie Naruto Uzumaki",
         category: "cartes"
     },
     rules: {
@@ -195,6 +219,36 @@ const AIDE = {
         exemple: "!hl plus paul 2500",
         category: "casino"
     },
+    blackjack: {
+        usage: "!blackjack <pseudo> <mise>",
+        description: "Blackjack simplifié contre le bot. Victoire simple x2, Blackjack (21 sur les 2 premières cartes) x2.5.",
+        exemple: "!blackjack paul 5000",
+        category: "casino"
+    },
+    craps: {
+        usage: "!craps <pseudo> <mise>",
+        description: "Variante simplifiée du craps. 7 ou 11 au premier lancer = victoire x2. 2/3/12 = défaite immédiate. Sinon le total devient le 'point' : relances jusqu'à le refaire (x3) ou tomber sur un 7 (défaite).",
+        exemple: "!craps paul 3000",
+        category: "casino"
+    },
+    loto: {
+        usage: "!loto / !loto acheter <pseudo> / !loto tirer (admin)",
+        description: "Loterie collective. Chaque ticket coûte 5000🔶 et alimente une cagnotte commune. Un admin lance le tirage avec !loto tirer : un seul gagnant remporte toute la cagnotte.",
+        exemple: "!loto acheter paul",
+        category: "casino"
+    },
+    doubleornothing: {
+        usage: "!doubleornothing <pseudo> <mise>",
+        description: "Double ou rien. Environ 45% de chance de doubler ta mise (x2), sinon tu perds tout.",
+        exemple: "!doubleornothing paul 4000",
+        category: "casino"
+    },
+    devine: {
+        usage: "!devine <nombre entre 1 et 20> <pseudo> <mise>",
+        description: "Devine un nombre secret tiré entre 1 et 20. Bonne réponse = x20 ta mise !",
+        exemple: "!devine 7 paul 1000",
+        category: "casino"
+    },
 
     // --- Admin ---
     delete: {
@@ -223,6 +277,19 @@ const AIDE = {
         description: "(Admin) Fixe directement la bourse ou les stars d'un joueur à une valeur précise (remplace l'ancienne valeur).",
         exemple: "!setstats paul argent 50000",
         adminOnly: true,
+        category: "admin"
+    },
+    donnercarte: {
+        usage: "!donnercarte <nom de la carte> <pseudo>",
+        description: "(Admin) Ajoute manuellement une carte du catalogue à la collection d'un joueur, gratuitement.",
+        exemple: "!donnercarte Naruto Uzumaki paul",
+        adminOnly: true,
+        category: "admin"
+    },
+    stats: {
+        usage: "!stats globales",
+        description: "Affiche des statistiques globales sur l'ensemble des joueurs (Ryo en circulation, cartes possédées, victoires totales...).",
+        exemple: "!stats globales",
         category: "admin"
     },
     reset: {

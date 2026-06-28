@@ -38,12 +38,16 @@ _▲ Tape !aide <commande> pour le détail_
 🏅 !classement
 📊 !rang <pseudo>
 🃏 !collection <pseudo>
+🎁 !daily <pseudo>
+📜 !logs <pseudo>
 
 ⟡ *CARTES* 🎴
 🎴 !tirage c/b/a/s/random
 🔎 !carte <nom>
 🛍️ !boutique
 💸 !acheter <nom> <pseudo>
+💰 !vendre <nom> <pseudo>
+🤝 !echange <pseudoA> <pseudoB> <nom>
 📖 !rules
 
 ⟡ *CASINO* 🎰
@@ -53,12 +57,19 @@ _▲ Tape !aide <commande> pour le détail_
 🎲 !des
 🎡 !roulette
 🃏 !hl
+🃏 !blackjack
+🎲 !craps
+🎟️ !loto
+🔁 !doubleornothing
+🔢 !devine
 
 ⟡ *ADMIN* 🛡️
 🗑️ !delete
 💰 !addmoney
 ⭐ !addstars
 🛡️ !setstats
+🎴 !donnercarte <nom> <pseudo>
+📊 !stats globales
 🔄 !reset
 🤖 !photobot
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔

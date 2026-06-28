@@ -247,6 +247,187 @@ async function checkAndBuyCard(pseudo, carte) {
     return { ok: true, user, prixPaye: choix };
 }
 
+// ──────────────────────────────────────────────
+// Ajoute une entrée au journal (logs) d'un joueur.
+// On garde seulement les 20 dernières entrées pour ne pas alourdir la fiche.
+// type: "achat" | "vente" | "echange" | "casino" | "daily" | "admin"
+// ──────────────────────────────────────────────
+function pushLog(user, type, detail) {
+    if (!Array.isArray(user.logs)) user.logs = [];
+    user.logs.unshift({
+        type,
+        detail,
+        date: new Date().toISOString(),
+    });
+    user.logs = user.logs.slice(0, 20);
+}
+
+// ──────────────────────────────────────────────
+// Vend une carte de l'inventaire du joueur contre du Ryo.
+// Prix de vente = 50% du prix d'achat en Ryo (ou en Stars converti, voir note).
+// Retire UNE seule occurrence de la carte de l'inventaire.
+// ──────────────────────────────────────────────
+async function checkAndSellCard(pseudo, carte) {
+    if (!pseudo) {
+        return { ok: false, error: "❌ Indique ton pseudo. Exemple : *!vendre Naruto Uzumaki paul*" };
+    }
+
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    if (!Array.isArray(user.inventaire) || !user.inventaire.includes(carte.nom)) {
+        return { ok: false, error: `❌ *${user.pseudo}* ne possède pas la carte *${carte.nom}*.` };
+    }
+
+    const prixListe = Array.isArray(carte.prix) ? carte.prix.map(parsePrix).filter(Boolean) : [];
+    if (!prixListe.length) {
+        return { ok: false, error: `❌ La carte *${carte.nom}* n'a pas de prix défini, impossible de la revendre.` };
+    }
+
+    // On revend toujours en Ryo, à 50% du premier prix en Ryo trouvé
+    // (si la carte n'a qu'un prix en Stars, on convertit grossièrement : 1⭐ = 10000🔶)
+    const prixMoney = prixListe.find(p => p.devise === "money");
+    const montantBase = prixMoney ? prixMoney.montant : prixListe[0].montant * 10000;
+    const gain = Math.round(montantBase * 0.5);
+
+    // Retire une seule occurrence de la carte
+    const index = user.inventaire.indexOf(carte.nom);
+    user.inventaire.splice(index, 1);
+    user.cards = user.inventaire.length;
+    user.money = (user.money || 0) + gain;
+
+    pushLog(user, "vente", `Vendu ${carte.nom} pour ${gain}🔶`);
+    await saveUser(key, user);
+
+    return { ok: true, user, gain };
+}
+
+// ──────────────────────────────────────────────
+// Échange une carte entre deux joueurs (1 pour 1, sans paiement).
+// pseudoA propose une carte de SA collection au pseudoB.
+// ──────────────────────────────────────────────
+async function checkAndExchangeCard(pseudoA, pseudoB, nomCarte) {
+    if (!pseudoA || !pseudoB) {
+        return { ok: false, error: "❌ Exemple : *!echange paul Naruto Uzumaki* (puis le destinataire confirme avec !echangeaccept)" };
+    }
+
+    const keyA = pseudoA.toLowerCase();
+    const keyB = pseudoB.toLowerCase();
+
+    const userA = await getUser(keyA);
+    const userB = await getUser(keyB);
+
+    if (!userA) return { ok: false, error: `❌ Joueur *${pseudoA}* introuvable.` };
+    if (!userB) return { ok: false, error: `❌ Joueur *${pseudoB}* introuvable.` };
+
+    if (!Array.isArray(userA.inventaire) || !userA.inventaire.includes(nomCarte)) {
+        return { ok: false, error: `❌ *${userA.pseudo}* ne possède pas la carte *${nomCarte}*.` };
+    }
+
+    return { ok: true, userA, userB, keyA, keyB, nomCarte };
+}
+
+// Exécute réellement le transfert de carte (appelé une fois la proposition validée)
+async function executeExchange(keyA, userA, keyB, userB, nomCarte) {
+    const index = userA.inventaire.indexOf(nomCarte);
+    userA.inventaire.splice(index, 1);
+    userA.cards = userA.inventaire.length;
+
+    if (!Array.isArray(userB.inventaire)) userB.inventaire = [];
+    userB.inventaire.push(nomCarte);
+    userB.cards = userB.inventaire.length;
+
+    pushLog(userA, "echange", `Donné ${nomCarte} à ${userB.pseudo}`);
+    pushLog(userB, "echange", `Reçu ${nomCarte} de ${userA.pseudo}`);
+
+    await saveUser(keyA, userA);
+    await saveUser(keyB, userB);
+}
+
+// ──────────────────────────────────────────────
+// Récompense quotidienne. Renvoie une erreur si déjà réclamée
+// dans les dernières 24h (basé sur user.lastDaily, timestamp ISO).
+// ──────────────────────────────────────────────
+const DAILY_MONEY = 10000;
+const DAILY_STARS = 1;
+const DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+async function claimDaily(pseudo) {
+    if (!pseudo) {
+        return { ok: false, error: "❌ Indique ton pseudo. Exemple : *!daily paul*" };
+    }
+
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable. Crée ta fiche avec *!new ${pseudo}*.` };
+    }
+
+    const now = Date.now();
+    const last = user.lastDaily ? new Date(user.lastDaily).getTime() : 0;
+    const elapsed = now - last;
+
+    if (elapsed < DAILY_COOLDOWN_MS) {
+        const reste = DAILY_COOLDOWN_MS - elapsed;
+        const heures = Math.floor(reste / (60 * 60 * 1000));
+        const minutes = Math.floor((reste % (60 * 60 * 1000)) / (60 * 1000));
+        return { ok: false, error: `⏳ *${user.pseudo}* a déjà réclamé sa récompense aujourd'hui.\nProchaine récompense dans *${heures}h${minutes}min*.` };
+    }
+
+    user.money = (user.money || 0) + DAILY_MONEY;
+    user.stars = (user.stars || 0) + DAILY_STARS;
+    user.lastDaily = new Date(now).toISOString();
+
+    pushLog(user, "daily", `Récompense quotidienne : +${DAILY_MONEY}🔶 +${DAILY_STARS}⭐`);
+    await saveUser(key, user);
+
+    return { ok: true, user, gainMoney: DAILY_MONEY, gainStars: DAILY_STARS };
+}
+
+// ──────────────────────────────────────────────
+// (Admin) Ajoute manuellement une carte du catalogue à la collection d'un joueur,
+// sans paiement (cadeau admin / event).
+// ──────────────────────────────────────────────
+async function adminGiveCard(pseudo, carte) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    if (!Array.isArray(user.inventaire)) user.inventaire = [];
+    user.inventaire.push(carte.nom);
+    user.cards = user.inventaire.length;
+
+    pushLog(user, "admin", `Carte ${carte.nom} ajoutée manuellement par un admin`);
+    await saveUser(key, user);
+
+    return { ok: true, user };
+}
+
+// ──────────────────────────────────────────────
+// Calcule des statistiques globales sur tous les joueurs enregistrés.
+// ──────────────────────────────────────────────
+async function getGlobalStats() {
+    const db = await loadAllUsers();
+    const users = Object.values(db);
+
+    const totalJoueurs = users.length;
+    const totalRyo = users.reduce((sum, u) => sum + (u.money || 0), 0);
+    const totalStars = users.reduce((sum, u) => sum + (u.stars || 0), 0);
+    const totalCartesVendues = users.reduce((sum, u) => sum + (Array.isArray(u.inventaire) ? u.inventaire.length : 0), 0);
+    const totalVictoires = users.reduce((sum, u) => sum + (u.wins || 0), 0);
+    const totalDefaites = users.reduce((sum, u) => sum + (u.loses || 0), 0);
+
+    return { totalJoueurs, totalRyo, totalStars, totalCartesVendues, totalVictoires, totalDefaites };
+}
+
 module.exports = {
     getUser,
     saveUser,
@@ -259,4 +440,11 @@ module.exports = {
     applyCasinoResult,
     parsePrix,
     checkAndBuyCard,
+    checkAndSellCard,
+    checkAndExchangeCard,
+    executeExchange,
+    claimDaily,
+    adminGiveCard,
+    getGlobalStats,
+    pushLog,
 };

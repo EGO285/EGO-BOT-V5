@@ -29,6 +29,21 @@ _Chaque jeu déduit ta mise de ta bourse avant de jouer — choisis-la toi-même
 
 🃏 *!hl <plus/moins> <pseudo> <mise>*
    Gain x1.8
+
+🃏 *!blackjack <pseudo> <mise>*
+   Victoire x2 — Blackjack (21 direct) x2.5
+
+🎲 *!craps <pseudo> <mise>*
+   Naturel (7/11) x2 — Point retombé x3
+
+🎟️ *!loto* / *!loto acheter <pseudo>*
+   Ticket à 5000🔶, cagnotte collective, un seul gagnant
+
+🔁 *!doubleornothing <pseudo> <mise>*
+   ~45% de chance de doubler ta mise
+
+🔢 *!devine <1-20> <pseudo> <mise>*
+   Bonne réponse = x20 ta mise
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 _Demandé par @${senderNumber}_
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
