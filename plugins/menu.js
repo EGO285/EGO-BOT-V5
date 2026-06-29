@@ -63,6 +63,17 @@ _▲ Tape !aide <commande> pour le détail_
 🔁 !doubleornothing
 🔢 !devine
 
+⟡ *BANQUE* 🏦
+🆕 !creercompte <code> <pseudo>
+💸 !emprunter <code> <pseudo> <montant>
+💰 !rembourser <code> <pseudo> <montant>
+💳 !dette <pseudo>
+📜 !releve <pseudo>
+🔁 !virement <code> <toi> <dest> <montant>
+🏦 !deposer <code> <pseudo> <montant>
+💵 !retirer <code> <pseudo> <montant>
+📋 !condbanque
+
 ⟡ *ADMIN* 🛡️
 🗑️ !delete
 💰 !addmoney
