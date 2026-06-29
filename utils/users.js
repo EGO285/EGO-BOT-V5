@@ -428,6 +428,356 @@ async function getGlobalStats() {
     return { totalJoueurs, totalRyo, totalStars, totalCartesVendues, totalVictoires, totalDefaites };
 }
 
+// ============================================================
+//  SYSTÈME BANCAIRE
+//  - Chaque joueur peut créer un compte bancaire (!creercompte <code>)
+//    lié à sa fiche, protégé par un code PIN à 4 chiffres (haché, jamais
+//    stocké en clair).
+//  - Les transactions sensibles (emprunter, rembourser, virement) exigent
+//    ce code et ne sont acceptées qu'en message privé (PV) avec le bot.
+//  - Toutes les transactions bancaires sont journalisées dans un registre
+//    global Redis, consultable par les admins (!transactions).
+// ============================================================
+
+const crypto = require("crypto");
+
+const TRANSACTIONS_KEY = "banque:transactions"; // Liste Redis (registre global)
+const PRET_TAUX_INTERET = 0.10;          // 10% d'intérêt
+const PRET_DELAI_MS = 48 * 60 * 60 * 1000; // 48h pour rembourser
+const PRET_MULTIPLICATEUR_PLAFOND = 2;    // plafond = 2x la bourse actuelle
+
+// Hache le code PIN avec un sel propre au joueur (jamais stocké en clair)
+function hashPin(pin, salt) {
+    return crypto.createHash("sha256").update(`${salt}:${pin}`).digest("hex");
+}
+
+function genererSalt() {
+    return crypto.randomBytes(8).toString("hex");
+}
+
+// ──────────────────────────────────────────────
+// Crée le compte bancaire lié à la fiche d'un joueur.
+// Refuse si la fiche n'existe pas, si un compte existe déjà,
+// ou si le code n'est pas exactement 4 chiffres.
+// ──────────────────────────────────────────────
+async function creerCompteBancaire(pseudo, code) {
+    if (!pseudo || !code) {
+        return { ok: false, error: "❌ Exemple : *!creercompte 1234*" };
+    }
+
+    if (!/^\d{4}$/.test(code)) {
+        return { ok: false, error: "❌ Le code doit être composé d'exactement *4 chiffres* (ex: 1234)." };
+    }
+
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Aucune fiche trouvée pour *${pseudo}*. Crée d'abord ta fiche avec *!new ${pseudo}*.` };
+    }
+
+    if (user.banque?.compteActif) {
+        return { ok: false, error: `❌ *${user.pseudo}* possède déjà un compte bancaire.` };
+    }
+
+    const salt = genererSalt();
+
+    user.banque = {
+        compteActif: true,
+        pinHash: hashPin(code, salt),
+        pinSalt: salt,
+        solde: 0,          // épargne séparée de la bourse (money)
+        dette: 0,          // montant total dû (capital + intérêt)
+        dateEmprunt: null,
+        dateLimite: null,
+    };
+
+    pushLog(user, "banque", "Compte bancaire créé.");
+    await saveUser(key, user);
+
+    return { ok: true, user };
+}
+
+// Vérifie le code PIN d'un joueur ayant un compte bancaire actif
+async function verifierPin(pseudo, code) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    if (!user.banque?.compteActif) {
+        return { ok: false, error: `❌ *${user.pseudo}* n'a pas de compte bancaire. Crée-en un avec *!creercompte <code>* (en PV).` };
+    }
+
+    if (!code || !/^\d{4}$/.test(code)) {
+        return { ok: false, error: "❌ Code invalide. Le code doit être composé de 4 chiffres." };
+    }
+
+    const hash = hashPin(code, user.banque.pinSalt);
+    if (hash !== user.banque.pinHash) {
+        return { ok: false, error: "❌ Code incorrect." };
+    }
+
+    return { ok: true, key, user };
+}
+
+// Ajoute une entrée au registre global des transactions bancaires (consultable par les admins)
+async function enregistrerTransaction(type, pseudo, detail, montant) {
+    const entree = {
+        type,            // "emprunt" | "remboursement" | "virement" | "depot" | "retrait"
+        pseudo,
+        detail,
+        montant,
+        date: new Date().toISOString(),
+    };
+    await redis.lpush(TRANSACTIONS_KEY, JSON.stringify(entree));
+    // On garde un historique global raisonnable (les 500 dernières opérations)
+    await redis.ltrim(TRANSACTIONS_KEY, 0, 499);
+    return entree;
+}
+
+// Récupère les n dernières transactions du registre global (toutes confondues)
+async function getTransactions(n = 20) {
+    const raw = await redis.lrange(TRANSACTIONS_KEY, 0, n - 1);
+    return (raw || []).map(r => (typeof r === "string" ? JSON.parse(r) : r));
+}
+
+// ──────────────────────────────────────────────
+// Emprunt bancaire : plafond = 2x la bourse actuelle du joueur,
+// intérêt fixe de 10%, à rembourser sous 48h.
+// Un joueur ne peut avoir qu'un seul prêt actif à la fois.
+// ──────────────────────────────────────────────
+async function emprunter(pseudo, code, montant) {
+    const verif = await verifierPin(pseudo, code);
+    if (!verif.ok) return verif;
+
+    const { key, user } = verif;
+
+    if (!Number.isFinite(montant) || montant <= 0) {
+        return { ok: false, error: "❌ Montant invalide. Exemple : *!emprunter 1234 20000*" };
+    }
+
+    if ((user.banque.dette || 0) > 0) {
+        return {
+            ok: false,
+            error: `❌ *${user.pseudo}* a déjà un prêt en cours (dette de *${user.banque.dette}🔶*). Rembourse-le avec *!rembourser <code> <montant>* avant d'emprunter à nouveau.`
+        };
+    }
+
+    const plafond = Math.round((user.money || 0) * PRET_MULTIPLICATEUR_PLAFOND);
+    if (montant > plafond) {
+        return {
+            ok: false,
+            error: `❌ Montant trop élevé.\n💰 Bourse actuelle : *${user.money}🔶*\n🎯 Plafond autorisé (x${PRET_MULTIPLICATEUR_PLAFOND}) : *${plafond}🔶*`
+        };
+    }
+
+    const interet = Math.round(montant * PRET_TAUX_INTERET);
+    const detteTotale = montant + interet;
+    const now = Date.now();
+
+    user.money = (user.money || 0) + montant;
+    user.banque.dette = detteTotale;
+    user.banque.dateEmprunt = new Date(now).toISOString();
+    user.banque.dateLimite = new Date(now + PRET_DELAI_MS).toISOString();
+
+    pushLog(user, "banque", `Emprunt de ${montant}🔶 (+${interet}🔶 d'intérêt, dette totale: ${detteTotale}🔶)`);
+    await saveUser(key, user);
+    await enregistrerTransaction("emprunt", user.pseudo, `Emprunt de ${montant}🔶, dette totale ${detteTotale}🔶 (échéance 48h)`, montant);
+
+    return { ok: true, user, montant, interet, detteTotale, dateLimite: user.banque.dateLimite };
+}
+
+// ──────────────────────────────────────────────
+// Remboursement (partiel ou total) du prêt en cours.
+// ──────────────────────────────────────────────
+async function rembourser(pseudo, code, montant) {
+    const verif = await verifierPin(pseudo, code);
+    if (!verif.ok) return verif;
+
+    const { key, user } = verif;
+
+    if (!Number.isFinite(montant) || montant <= 0) {
+        return { ok: false, error: "❌ Montant invalide. Exemple : *!rembourser 1234 5000*" };
+    }
+
+    const dette = user.banque.dette || 0;
+    if (dette <= 0) {
+        return { ok: false, error: `❌ *${user.pseudo}* n'a aucune dette en cours.` };
+    }
+
+    if ((user.money || 0) < montant) {
+        return { ok: false, error: `❌ Fonds insuffisants.\n💰 Bourse actuelle : *${user.money}🔶*` };
+    }
+
+    const montantApplique = Math.min(montant, dette);
+    user.money -= montantApplique;
+    user.banque.dette = dette - montantApplique;
+
+    let solde = user.banque.dette;
+    if (solde <= 0) {
+        user.banque.dette = 0;
+        user.banque.dateEmprunt = null;
+        user.banque.dateLimite = null;
+    }
+
+    pushLog(user, "banque", `Remboursement de ${montantApplique}🔶 (dette restante: ${user.banque.dette}🔶)`);
+    await saveUser(key, user);
+    await enregistrerTransaction("remboursement", user.pseudo, `Remboursement de ${montantApplique}🔶, dette restante ${user.banque.dette}🔶`, montantApplique);
+
+    return { ok: true, user, montantApplique, detteRestante: user.banque.dette };
+}
+
+// Affiche l'état de la dette en cours
+async function getDette(pseudo) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    if (!user.banque?.compteActif) {
+        return { ok: false, error: `❌ *${user.pseudo}* n'a pas de compte bancaire. Crée-en un avec *!creercompte <code>* (en PV).` };
+    }
+
+    return {
+        ok: true,
+        user,
+        dette: user.banque.dette || 0,
+        dateLimite: user.banque.dateLimite,
+        enRetard: user.banque.dateLimite ? Date.now() > new Date(user.banque.dateLimite).getTime() : false,
+    };
+}
+
+// ──────────────────────────────────────────────
+// Virement entre deux joueurs (nécessite le code PIN de l'expéditeur).
+// ──────────────────────────────────────────────
+async function virement(pseudoExpediteur, code, pseudoDestinataire, montant) {
+    const verif = await verifierPin(pseudoExpediteur, code);
+    if (!verif.ok) return verif;
+
+    const { key: keyA, user: userA } = verif;
+
+    if (!pseudoDestinataire) {
+        return { ok: false, error: "❌ Exemple : *!virement 1234 marie 5000*" };
+    }
+
+    const keyB = pseudoDestinataire.toLowerCase();
+    if (keyB === keyA) {
+        return { ok: false, error: "❌ Tu ne peux pas te faire un virement à toi-même." };
+    }
+
+    const userB = await getUser(keyB);
+    if (!userB) {
+        return { ok: false, error: `❌ Joueur *${pseudoDestinataire}* introuvable.` };
+    }
+
+    if (!Number.isFinite(montant) || montant <= 0) {
+        return { ok: false, error: "❌ Montant invalide. Exemple : *!virement 1234 marie 5000*" };
+    }
+
+    if ((userA.money || 0) < montant) {
+        return { ok: false, error: `❌ Fonds insuffisants.\n💰 Bourse actuelle : *${userA.money}🔶*` };
+    }
+
+    userA.money -= montant;
+    userB.money = (userB.money || 0) + montant;
+
+    pushLog(userA, "banque", `Virement envoyé de ${montant}🔶 à ${userB.pseudo}`);
+    pushLog(userB, "banque", `Virement reçu de ${montant}🔶 de ${userA.pseudo}`);
+
+    await saveUser(keyA, userA);
+    await saveUser(keyB, userB);
+    await enregistrerTransaction("virement", userA.pseudo, `Virement de ${montant}🔶 vers ${userB.pseudo}`, montant);
+
+    return { ok: true, userA, userB, montant };
+}
+
+// ──────────────────────────────────────────────
+// Dépôt / retrait sur l'épargne bancaire (solde séparé de la bourse courante).
+// ──────────────────────────────────────────────
+async function deposerBanque(pseudo, code, montant) {
+    const verif = await verifierPin(pseudo, code);
+    if (!verif.ok) return verif;
+
+    const { key, user } = verif;
+
+    if (!Number.isFinite(montant) || montant <= 0) {
+        return { ok: false, error: "❌ Montant invalide. Exemple : *!deposer 1234 10000*" };
+    }
+
+    if ((user.money || 0) < montant) {
+        return { ok: false, error: `❌ Fonds insuffisants.\n💰 Bourse actuelle : *${user.money}🔶*` };
+    }
+
+    user.money -= montant;
+    user.banque.solde = (user.banque.solde || 0) + montant;
+
+    pushLog(user, "banque", `Dépôt de ${montant}🔶 sur le compte épargne`);
+    await saveUser(key, user);
+    await enregistrerTransaction("depot", user.pseudo, `Dépôt de ${montant}🔶 sur l'épargne`, montant);
+
+    return { ok: true, user, montant };
+}
+
+async function retirerBanque(pseudo, code, montant) {
+    const verif = await verifierPin(pseudo, code);
+    if (!verif.ok) return verif;
+
+    const { key, user } = verif;
+
+    if (!Number.isFinite(montant) || montant <= 0) {
+        return { ok: false, error: "❌ Montant invalide. Exemple : *!retirer 1234 10000*" };
+    }
+
+    if ((user.banque.solde || 0) < montant) {
+        return { ok: false, error: `❌ Solde épargne insuffisant.\n🏦 Solde épargne : *${user.banque.solde || 0}🔶*` };
+    }
+
+    user.banque.solde -= montant;
+    user.money = (user.money || 0) + montant;
+
+    pushLog(user, "banque", `Retrait de ${montant}🔶 depuis le compte épargne`);
+    await saveUser(key, user);
+    await enregistrerTransaction("retrait", user.pseudo, `Retrait de ${montant}🔶 depuis l'épargne`, montant);
+
+    return { ok: true, user, montant };
+}
+
+// Relevé : dernières opérations bancaires du joueur (sous-ensemble de ses logs)
+async function getReleve(pseudo) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    const logsBanque = (user.logs || []).filter(l => l.type === "banque").slice(0, 15);
+    return { ok: true, user, logs: logsBanque };
+}
+
+// ──────────────────────────────────────────────
+// (Admin) Liste tous les comptes bancaires actifs avec leur code PIN en clair.
+// Nécessite de relire les pseudos depuis l'index, puisque le PIN n'est pas
+// stocké en clair : on ne peut PAS le retrouver à partir du hash.
+// → Cette fonction ne peut donc pas "afficher" un PIN déjà créé.
+// ──────────────────────────────────────────────
+async function adminListerComptes() {
+    const db = await loadAllUsers();
+    return Object.values(db)
+        .filter(u => u.banque?.compteActif)
+        .map(u => ({
+            pseudo: u.pseudo,
+            solde: u.banque.solde || 0,
+            dette: u.banque.dette || 0,
+            dateLimite: u.banque.dateLimite,
+        }));
+}
+
 module.exports = {
     getUser,
     saveUser,
@@ -447,4 +797,20 @@ module.exports = {
     adminGiveCard,
     getGlobalStats,
     pushLog,
+    // Banque
+    creerCompteBancaire,
+    verifierPin,
+    emprunter,
+    rembourser,
+    getDette,
+    virement,
+    deposerBanque,
+    retirerBanque,
+    getReleve,
+    enregistrerTransaction,
+    getTransactions,
+    adminListerComptes,
+    PRET_TAUX_INTERET,
+    PRET_DELAI_MS,
+    PRET_MULTIPLICATEUR_PLAFOND,
 };

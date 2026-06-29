@@ -250,6 +250,76 @@ const AIDE = {
         category: "casino"
     },
 
+    // --- Banque ---
+    creercompte: {
+        usage: "!creercompte <code> <pseudo>",
+        description: "Crée ton compte bancaire lié à ta fiche, protégé par un code à 4 chiffres. À utiliser uniquement en PV avec le bot.",
+        exemple: "!creercompte 1234 paul",
+        category: "banque"
+    },
+    emprunter: {
+        usage: "!emprunter <code> <pseudo> <montant>",
+        description: "Emprunte du Ryo à la banque (plafond = 2x ta bourse, intérêt de 10%, remboursement sous 48h). Uniquement en PV.",
+        exemple: "!emprunter 1234 paul 20000",
+        category: "banque"
+    },
+    rembourser: {
+        usage: "!rembourser <code> <pseudo> <montant>",
+        description: "Rembourse partiellement ou totalement ta dette en cours. Uniquement en PV.",
+        exemple: "!rembourser 1234 paul 5000",
+        category: "banque"
+    },
+    dette: {
+        usage: "!dette <pseudo>",
+        description: "Affiche le montant de la dette en cours d'un joueur et sa date d'échéance.",
+        exemple: "!dette paul",
+        category: "banque"
+    },
+    releve: {
+        usage: "!releve <pseudo>",
+        description: "Affiche l'historique des opérations bancaires (emprunts, remboursements, virements, dépôts, retraits) d'un joueur.",
+        exemple: "!releve paul",
+        category: "banque"
+    },
+    virement: {
+        usage: "!virement <code> <ton pseudo> <pseudo destinataire> <montant>",
+        description: "Envoie du Ryo directement à un autre joueur, sans frais. Uniquement en PV.",
+        exemple: "!virement 1234 paul marie 5000",
+        category: "banque"
+    },
+    deposer: {
+        usage: "!deposer <code> <pseudo> <montant>",
+        description: "Met de l'argent à l'abri sur ton épargne bancaire, séparée de ta bourse courante. Uniquement en PV.",
+        exemple: "!deposer 1234 paul 10000",
+        category: "banque"
+    },
+    retirer: {
+        usage: "!retirer <code> <pseudo> <montant>",
+        description: "Retire de l'argent de ton épargne bancaire vers ta bourse courante. Uniquement en PV.",
+        exemple: "!retirer 1234 paul 10000",
+        category: "banque"
+    },
+    condbanque: {
+        usage: "!condbanque",
+        description: "Affiche toutes les conditions bancaires : création de compte, taux d'intérêt, plafond d'emprunt, délai de remboursement.",
+        exemple: "!condbanque",
+        category: "banque"
+    },
+    comptes: {
+        usage: "!comptes",
+        description: "(Admin) Liste tous les comptes bancaires actifs avec leur épargne et leur dette en cours.",
+        exemple: "!comptes",
+        adminOnly: true,
+        category: "banque"
+    },
+    transactions: {
+        usage: "!transactions <nombre>",
+        description: "(Admin) Affiche les dernières transactions bancaires en cours sur l'ensemble du serveur.",
+        exemple: "!transactions 30",
+        adminOnly: true,
+        category: "banque"
+    },
+
     // --- Admin ---
     delete: {
         usage: "!delete <pseudo>",
@@ -308,6 +378,7 @@ const CATEGORY_IMAGES = {
     combat: "https://files.catbox.moe/jchbi8.jpg",
     cartes: "https://files.catbox.moe/jchbi8.jpg",
     casino: "https://files.catbox.moe/04bcjy.jpg", // réutilise l'image de !casino
+    banque: "https://files.catbox.moe/pq45uy.jpg",
     // duel, chrono, joueurs, admin : pas d'image fournie pour l'instant
 };
 
