@@ -250,6 +250,13 @@ const AIDE = {
         category: "casino"
     },
 
+    fichephoto: {
+        usage: "!fichephoto <pseudo> <url_image>",
+        description: "Ajoute ou change l'image associée à la fiche d'un joueur. Marche aussi en réponse à une image jointe.",
+        exemple: "!fichephoto paul https://...jpg",
+        category: "joueurs"
+    },
+
     // --- Banque ---
     creercompte: {
         usage: "!creercompte <code> <pseudo>",

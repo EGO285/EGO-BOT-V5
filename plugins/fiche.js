@@ -19,8 +19,18 @@ module.exports = {
             return sock.sendMessage(from, { text: `❌ Joueur *${name}* introuvable.` });
         }
 
+        const caption = buildFiche(user) + `\n\n_Consulté par @${senderNumber}_`;
+
+        if (user.photo) {
+            return sock.sendMessage(from, {
+                image: { url: user.photo },
+                caption,
+                mentions: [senderJid]
+            });
+        }
+
         await sock.sendMessage(from, {
-            text: buildFiche(user) + `\n\n_Consulté par @${senderNumber}_`,
+            text: caption,
             mentions: [senderJid]
         });
     }
