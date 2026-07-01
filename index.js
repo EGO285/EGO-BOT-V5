@@ -43,7 +43,7 @@ server.listen(PORT, "0.0.0.0", () => {
 const ADMIN_NUMBERS = ["330665384876", "233275249576"]; // ← ajoute tes numéros ici (sans +)
 
 // Numéro sur lequel le bot lui-même se connecte (pairing code), sans le +
-const BOT_PHONE_NUMBER = process.env.PHONE_NUMBER || "330665384876";
+const BOT_PHONE_NUMBER = process.env.PHONE_NUMBER || "22361872227";
 
 // Image de profil appliquée automatiquement au démarrage
 const BOT_PROFILE_PIC_URL = "https://files.catbox.moe/ys8fij.jpg";
