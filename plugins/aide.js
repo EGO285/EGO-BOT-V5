@@ -383,6 +383,18 @@ const AIDE = {
         adminOnly: true,
         category: "admin"
     },
+    parilibre: {
+        usage: "!parilibre debut <pseudo1> <pseudo2>  |  !parilibre off winner: <pseudo>",
+        description: "Ouvre une session de paris 1v1 entre deux joueurs. Les cotes sont calculées automatiquement à partir de leur classement (points) : plus l'écart de niveau est grand, plus la cote de l'outsider est élevée. La clôture (déclaration du vainqueur) est réservée à un admin, qui règle alors automatiquement tous les paris.",
+        exemple: "!parilibre debut naruto sasuke",
+        category: "casino"
+    },
+    parier: {
+        usage: "!parier <ton_pseudo> <montant> <pseudo_choisi>",
+        description: "Place une mise sur l'un des deux joueurs d'une session de paris libre active dans ce chat (voir !parilibre). La mise est débitée immédiatement ; le gain (mise × cote) n'est crédité qu'à la clôture de la session si ton favori gagne.",
+        exemple: "!parier paul 5000 naruto",
+        category: "casino"
+    },
     banfiche: {
         usage: "!banfiche <pseudo> [raison]",
         description: "(Admin) Bannit manuellement une fiche : le joueur ne peut plus jouer à des jeux ni acheter de cartes, jusqu'à !unbanfiche. Indépendant du système de prêts bancaires.",

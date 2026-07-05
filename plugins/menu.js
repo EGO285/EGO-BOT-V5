@@ -62,6 +62,8 @@ _▲ Tape !aide <commande> pour le détail_
 🎟️ !loto
 🔁 !doubleornothing
 🔢 !devine
+🎲 !parilibre debut <p1> <p2>
+💵 !parier <pseudo> <montant> <p_choisi>
 
 ⟡ *BANQUE* 🏦
 🆕 !creercompte <code> <pseudo>
