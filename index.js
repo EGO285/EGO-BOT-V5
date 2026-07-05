@@ -10,6 +10,8 @@ const { Boom } = require("@hapi/boom");
 const fs = require("fs");
 const pino = require("pino");
 const http = require("http");
+const crypto = require("crypto");
+const QRCode = require("qrcode");
 const { verifierEcheancesBancaires } = require("./utils/users");
 
 // =========================
@@ -26,9 +28,70 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // =========================
+// MODE DE CONNEXION : QR CODE ou PAIRING CODE
+// =========================
+// USE_QR_CODE=true  -> affiche un QR à scanner, servi en image sur une URL protégée
+// USE_QR_CODE=false (défaut) -> code de jumelage (pairing code) dans les logs, rien à scanner
+const USE_QR_CODE = (process.env.USE_QR_CODE || "false").toLowerCase() === "true";
+
+// Jeton secret pour protéger l'URL du QR : sans lui, impossible de voir le QR.
+// Sans ça, n'importe qui trouvant l'URL publique Render pourrait scanner le QR
+// à ta place et lier SON téléphone au bot au lieu du tien.
+// Fixe QR_SECRET dans les variables d'environnement Render pour un lien stable,
+// sinon un secret aléatoire est généré à chaque démarrage (visible dans les logs).
+const QR_SECRET = process.env.QR_SECRET || crypto.randomBytes(12).toString("hex");
+
+// URL publique du service (fournie automatiquement par Render pour un Web Service)
+const PUBLIC_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+// État en mémoire du QR actuellement affichable (régénéré à chaque nouveau QR émis par Baileys)
+let currentQrBuffer = null;
+let currentQrGeneratedAt = null;
+
+// =========================
 // SERVER (Render / Heroku)
 // =========================
 const server = http.createServer((req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+
+    // Page HTML avec l'image du QR + auto-refresh (le QR expire après ~60s
+    // et Baileys en régénère un nouveau tant qu'il n'est pas scanné)
+    if (url.pathname === "/qr") {
+        if (!USE_QR_CODE) {
+            res.writeHead(404, { "Content-Type": "text/plain" });
+            return res.end("Mode QR désactivé (USE_QR_CODE=false). Le bot utilise le pairing code.\n");
+        }
+        if (url.searchParams.get("token") !== QR_SECRET) {
+            res.writeHead(403, { "Content-Type": "text/plain" });
+            return res.end("Accès refusé : jeton invalide.\n");
+        }
+        if (!currentQrBuffer) {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+            return res.end(`<meta http-equiv="refresh" content="5"><p style="font-family:sans-serif">En attente du QR code... (actualisation automatique)</p>`);
+        }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        return res.end(`
+<!DOCTYPE html>
+<html>
+<head><meta http-equiv="refresh" content="15"><title>EGO BOT — QR Code</title></head>
+<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#111;font-family:sans-serif;color:#fff;">
+    <h2>📱 Scanne ce QR avec WhatsApp</h2>
+    <img src="/qr/image.png?token=${QR_SECRET}" alt="QR Code WhatsApp" style="width:320px;height:320px;background:#fff;padding:16px;border-radius:12px;" />
+    <p>Page actualisée automatiquement toutes les 15s (le QR expire après ~60s).</p>
+</body>
+</html>`);
+    }
+
+    // L'image PNG brute du QR (utilisée par la page ci-dessus)
+    if (url.pathname === "/qr/image.png") {
+        if (!USE_QR_CODE || url.searchParams.get("token") !== QR_SECRET || !currentQrBuffer) {
+            res.writeHead(404, { "Content-Type": "text/plain" });
+            return res.end("QR indisponible.\n");
+        }
+        res.writeHead(200, { "Content-Type": "image/png" });
+        return res.end(currentQrBuffer);
+    }
+
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("EGO BOT is running\n");
 });
@@ -36,6 +99,14 @@ const server = http.createServer((req, res) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
     console.log(`Serveur HTTP en écoute sur le port ${PORT}`);
+    if (USE_QR_CODE) {
+        console.log("====================================");
+        console.log("      📱 EGO BOT — MODE QR CODE");
+        console.log("====================================");
+        console.log(`Ouvre cette URL pour scanner : ${PUBLIC_URL}/qr?token=${QR_SECRET}`);
+        console.log("⚠️ Garde ce lien secret, il permet de lier un appareil au bot.");
+        console.log("====================================");
+    }
 });
 
 // =========================
@@ -75,9 +146,9 @@ async function startBot() {
     });
 
     // =========================
-    // PAIRING CODE
+    // PAIRING CODE (uniquement si le mode QR n'est pas activé)
     // =========================
-    if (!sock.authState.creds.registered) {
+    if (!USE_QR_CODE && !sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
                 const code = await sock.requestPairingCode(BOT_PHONE_NUMBER);
@@ -98,7 +169,17 @@ async function startBot() {
     // CONNECTION
     // =========================
     sock.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+
+        if (qr && USE_QR_CODE) {
+            try {
+                currentQrBuffer = await QRCode.toBuffer(qr, { width: 400, margin: 2 });
+                currentQrGeneratedAt = new Date();
+                console.log(`📱 Nouveau QR disponible : ${PUBLIC_URL}/qr?token=${QR_SECRET}`);
+            } catch (e) {
+                console.error("Erreur génération QR:", e);
+            }
+        }
 
         if (connection === "close") {
             const shouldReconnect =
@@ -111,6 +192,9 @@ async function startBot() {
 
         } else if (connection === "open") {
             console.log("✅ EGO BOT CONNECTÉ");
+            // Le QR n'est plus utile une fois connecté, on vide l'état en mémoire
+            currentQrBuffer = null;
+            currentQrGeneratedAt = null;
 
             // Applique automatiquement la photo de profil du bot au démarrage
             try {
