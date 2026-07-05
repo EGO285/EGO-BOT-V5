@@ -17,7 +17,13 @@ module.exports = {
             const echeance = c.dateLimite
                 ? new Date(c.dateLimite).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })
                 : "—";
-            return `👤 *${c.pseudo}*\n🏦 Épargne : ${c.solde}🔶 — 💳 Dette : ${c.dette}🔶${c.dette > 0 ? ` (échéance: ${echeance})` : ""}`;
+            let statutTxt = "";
+            if (c.bloquePermanent) {
+                statutTxt = "\n⛔ *BLOQUÉ EN PERMANENCE* (!unlock requis)";
+            } else if (c.suspendu) {
+                statutTxt = `\n⚠️ *Suspendu* (cycle ${c.suspensionCycle || 0}/3)`;
+            }
+            return `👤 *${c.pseudo}*\n🏦 Épargne : ${c.solde}🔶 — 💳 Dette : ${c.dette}🔶${c.dette > 0 ? ` (échéance: ${echeance})` : ""}${statutTxt}`;
         }).join("\n\n");
 
         await sock.sendMessage(from, {

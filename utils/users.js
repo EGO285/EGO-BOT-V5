@@ -141,9 +141,43 @@ ${corps}
 }
 
 // ──────────────────────────────────────────────
+// Détermine si la FICHE d'un joueur est actuellement bloquée pour
+// jouer/acheter des cartes : soit à cause d'un ban manuel admin (!banfiche),
+// soit à cause d'un prêt bancaire non remboursé (suspension 48h ou blocage
+// permanent après 3 cycles). Utilisé par checkCanPlay() et checkAndBuyCard().
+// ──────────────────────────────────────────────
+function estFicheBloquee(user) {
+    if (user.banni) {
+        return {
+            bloque: true,
+            error: `⛔ *${user.pseudo}* est banni par un admin${user.banniRaison ? ` (raison : ${user.banniRaison})` : ""} et ne peut ni jouer ni acheter de cartes.`
+        };
+    }
+
+    const b = user.banque;
+    if (b?.bloquePermanent) {
+        return {
+            bloque: true,
+            error: `⛔ Le compte de *${user.pseudo}* est *bloqué en permanence* suite à 3 prêts non remboursés. Un admin doit taper *!unlock ${user.pseudo}* pour le débloquer.`
+        };
+    }
+    if (b?.suspendu) {
+        const finTxt = b.suspensionFin
+            ? new Date(b.suspensionFin).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })
+            : "bientôt";
+        return {
+            bloque: true,
+            error: `⛔ Le compte de *${user.pseudo}* est *suspendu* (prêt non remboursé, cycle ${b.suspensionCycle || 1}/${MAX_CYCLES_SUSPENSION}).\nImpossible de jouer ou d'acheter des cartes jusqu'au *${finTxt}*.`
+        };
+    }
+
+    return { bloque: false };
+}
+
+// ──────────────────────────────────────────────
 // Logique commune à tous les jeux de casino :
-// vérifie que le joueur a une fiche et assez d'argent
-// pour la mise demandée.
+// vérifie que le joueur a une fiche, n'est pas bloqué, et a assez
+// d'argent pour la mise demandée.
 // ──────────────────────────────────────────────
 async function checkCanPlay(pseudo, mise) {
     if (!pseudo) {
@@ -155,6 +189,11 @@ async function checkCanPlay(pseudo, mise) {
 
     if (!user) {
         return { ok: false, error: `❌ Joueur *${pseudo}* introuvable. Crée ta fiche avec *!new ${pseudo}*.` };
+    }
+
+    const blocage = estFicheBloquee(user);
+    if (blocage.bloque) {
+        return { ok: false, error: blocage.error };
     }
 
     if ((user.money || 0) < mise) {
@@ -210,6 +249,11 @@ async function checkAndBuyCard(pseudo, carte) {
 
     if (!user) {
         return { ok: false, error: `❌ Joueur *${pseudo}* introuvable. Crée ta fiche avec *!new ${pseudo}*.` };
+    }
+
+    const blocage = estFicheBloquee(user);
+    if (blocage.bloque) {
+        return { ok: false, error: blocage.error };
     }
 
     const prixListe = Array.isArray(carte.prix) ? carte.prix.map(parsePrix).filter(Boolean) : [];
@@ -443,8 +487,11 @@ const crypto = require("crypto");
 
 const TRANSACTIONS_KEY = "banque:transactions"; // Liste Redis (registre global)
 const PRET_TAUX_INTERET = 0.10;          // 10% d'intérêt
-const PRET_DELAI_MS = 48 * 60 * 60 * 1000; // 48h pour rembourser
+const PRET_DELAI_MS = 24 * 60 * 60 * 1000;   // 24h pour rembourser (anciennement 48h)
 const PRET_MULTIPLICATEUR_PLAFOND = 2;    // plafond = 2x la bourse actuelle
+const EMPRUNT_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 1 seul prêt / 24h par compte, même déjà remboursé
+const SUSPENSION_DELAI_MS = 48 * 60 * 60 * 1000; // durée de suspension après un non-remboursement
+const MAX_CYCLES_SUSPENSION = 3; // nombre de non-remboursements avant blocage permanent (!unlock requis)
 
 // Hache le code PIN avec un sel propre au joueur (jamais stocké en clair)
 function hashPin(pin, salt) {
@@ -490,6 +537,11 @@ async function creerCompteBancaire(pseudo, code) {
         dette: 0,          // montant total dû (capital + intérêt)
         dateEmprunt: null,
         dateLimite: null,
+        dernierEmprunt: null,     // dernier prêt pris (limite à 1 prêt / 24h)
+        suspendu: false,          // suspension temporaire (48h) après non-remboursement
+        suspensionCycle: 0,       // nombre de non-remboursements successifs (max 3)
+        suspensionFin: null,      // date de fin de la suspension en cours
+        bloquePermanent: false,   // blocage définitif après 3 non-remboursements (!unlock requis)
     };
 
     pushLog(user, "banque", "Compte bancaire créé.");
@@ -498,7 +550,9 @@ async function creerCompteBancaire(pseudo, code) {
     return { ok: true, user };
 }
 
-// Vérifie le code PIN d'un joueur ayant un compte bancaire actif
+// Vérifie le code PIN d'un joueur ayant un compte bancaire actif.
+// Bloque aussi toute opération bancaire si le compte est suspendu (48h après
+// un prêt non remboursé) ou bloqué en permanence (3 non-remboursements).
 async function verifierPin(pseudo, code) {
     const key = pseudo.toLowerCase();
     const user = await getUser(key);
@@ -509,6 +563,17 @@ async function verifierPin(pseudo, code) {
 
     if (!user.banque?.compteActif) {
         return { ok: false, error: `❌ *${user.pseudo}* n'a pas de compte bancaire. Crée-en un avec *!creercompte <code>* (en PV).` };
+    }
+
+    const b = user.banque;
+    if (b.bloquePermanent) {
+        return { ok: false, error: `⛔ Le compte de *${user.pseudo}* est *bloqué en permanence* (3 prêts non remboursés). Un admin doit taper *!unlock ${user.pseudo}* pour le débloquer.` };
+    }
+    if (b.suspendu) {
+        const finTxt = b.suspensionFin
+            ? new Date(b.suspensionFin).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })
+            : "bientôt";
+        return { ok: false, error: `⛔ Le compte de *${user.pseudo}* est *suspendu* jusqu'au *${finTxt}* (prêt non remboursé, cycle ${b.suspensionCycle || 1}/${MAX_CYCLES_SUSPENSION}). Toutes les opérations bancaires sont bloquées jusqu'à la fin de la suspension.` };
     }
 
     if (!code || !/^\d{4}$/.test(code)) {
@@ -566,6 +631,21 @@ async function emprunter(pseudo, code, montant) {
         };
     }
 
+    // Un seul prêt autorisé par 24h et par compte, même si le prêt précédent
+    // a déjà été intégralement remboursé.
+    if (user.banque.dernierEmprunt) {
+        const depuis = Date.now() - new Date(user.banque.dernierEmprunt).getTime();
+        if (depuis < EMPRUNT_COOLDOWN_MS) {
+            const reste = EMPRUNT_COOLDOWN_MS - depuis;
+            const heures = Math.floor(reste / (60 * 60 * 1000));
+            const minutes = Math.floor((reste % (60 * 60 * 1000)) / (60 * 1000));
+            return {
+                ok: false,
+                error: `⏳ *${user.pseudo}* ne peut emprunter qu'*une fois par 24h*. Réessaie dans *${heures}h${minutes}min*.`
+            };
+        }
+    }
+
     const plafond = Math.round((user.money || 0) * PRET_MULTIPLICATEUR_PLAFOND);
     if (montant > plafond) {
         return {
@@ -577,15 +657,22 @@ async function emprunter(pseudo, code, montant) {
     const interet = Math.round(montant * PRET_TAUX_INTERET);
     const detteTotale = montant + interet;
     const now = Date.now();
+    const delaiHeures = Math.round(PRET_DELAI_MS / (60 * 60 * 1000));
 
     user.money = (user.money || 0) + montant;
     user.banque.dette = detteTotale;
     user.banque.dateEmprunt = new Date(now).toISOString();
     user.banque.dateLimite = new Date(now + PRET_DELAI_MS).toISOString();
+    user.banque.dernierEmprunt = new Date(now).toISOString();
+    // Réinitialise le cycle de suspension : c'est un nouveau prêt propre
+    user.banque.suspendu = false;
+    user.banque.suspensionCycle = 0;
+    user.banque.suspensionFin = null;
+    user.banque.bloquePermanent = false;
 
     pushLog(user, "banque", `Emprunt de ${montant}🔶 (+${interet}🔶 d'intérêt, dette totale: ${detteTotale}🔶)`);
     await saveUser(key, user);
-    await enregistrerTransaction("emprunt", user.pseudo, `Emprunt de ${montant}🔶, dette totale ${detteTotale}🔶 (échéance 48h)`, montant);
+    await enregistrerTransaction("emprunt", user.pseudo, `Emprunt de ${montant}🔶, dette totale ${detteTotale}🔶 (échéance ${delaiHeures}h)`, montant);
 
     return { ok: true, user, montant, interet, detteTotale, dateLimite: user.banque.dateLimite };
 }
@@ -621,6 +708,7 @@ async function rembourser(pseudo, code, montant) {
         user.banque.dette = 0;
         user.banque.dateEmprunt = null;
         user.banque.dateLimite = null;
+        user.banque.suspensionCycle = 0;
     }
 
     pushLog(user, "banque", `Remboursement de ${montantApplique}🔶 (dette restante: ${user.banque.dette}🔶)`);
@@ -628,6 +716,187 @@ async function rembourser(pseudo, code, montant) {
     await enregistrerTransaction("remboursement", user.pseudo, `Remboursement de ${montantApplique}🔶, dette restante ${user.banque.dette}🔶`, montantApplique);
 
     return { ok: true, user, montantApplique, detteRestante: user.banque.dette };
+}
+
+// ──────────────────────────────────────────────
+// À appeler périodiquement (setInterval côté index.js). Fait avancer
+// automatiquement le cycle de pénalité des prêts non remboursés :
+//
+//   Prêt pris → 24h pour rembourser
+//     ↳ non remboursé → compte SUSPENDU 48h (jeux + achats de cartes bloqués)
+//         ↳ suspension terminée → nouveau délai de 24h pour rembourser
+//             ↳ non remboursé (3e fois) → compte BLOQUÉ EN PERMANENCE
+//                 ↳ seul un admin peut débloquer avec !unlock <pseudo>
+// ──────────────────────────────────────────────
+async function verifierEcheancesBancaires() {
+    const db = await loadAllUsers();
+    const now = Date.now();
+    const writes = [];
+
+    for (const user of Object.values(db)) {
+        const b = user.banque;
+        if (!b?.compteActif) continue;
+        const key = user.pseudo.toLowerCase();
+
+        // Cas A : une suspension de 48h est en cours et vient de se terminer
+        // -> on ouvre une nouvelle fenêtre de 24h pour rembourser.
+        if (b.suspendu && !b.bloquePermanent && b.suspensionFin && now > new Date(b.suspensionFin).getTime()) {
+            b.suspendu = false;
+            b.suspensionFin = null;
+            b.dateLimite = new Date(now + PRET_DELAI_MS).toISOString();
+            pushLog(user, "banque", `Fin de la suspension de 48h. Nouveau délai de 24h pour rembourser (cycle ${b.suspensionCycle}/${MAX_CYCLES_SUSPENSION}).`);
+            writes.push(saveUser(key, user));
+            continue;
+        }
+
+        // Cas B : dette active, compte pas déjà suspendu/bloqué, et échéance dépassée
+        // -> déclenche la suspension (ou le blocage permanent au 3e cycle).
+        if ((b.dette || 0) > 0 && !b.suspendu && !b.bloquePermanent && b.dateLimite && now > new Date(b.dateLimite).getTime()) {
+            b.suspensionCycle = (b.suspensionCycle || 0) + 1;
+
+            if (b.suspensionCycle >= MAX_CYCLES_SUSPENSION) {
+                b.bloquePermanent = true;
+                b.suspendu = true;
+                b.suspensionFin = null;
+                pushLog(user, "banque", `⛔ 3e non-remboursement : compte bloqué EN PERMANENCE. Un admin doit taper !unlock ${user.pseudo}.`);
+            } else {
+                b.suspendu = true;
+                b.suspensionFin = new Date(now + SUSPENSION_DELAI_MS).toISOString();
+                pushLog(user, "banque", `⚠️ Prêt non remboursé sous 24h. Compte suspendu 48h (cycle ${b.suspensionCycle}/${MAX_CYCLES_SUSPENSION}).`);
+            }
+            writes.push(saveUser(key, user));
+        }
+    }
+
+    if (writes.length) await Promise.all(writes);
+    return writes.length;
+}
+
+// ──────────────────────────────────────────────
+// (Admin) !unlock <pseudo> — débloque un compte bloqué en permanence
+// (ou en cours de suspension), et rouvre un délai de 24h propre si
+// une dette est toujours due. Ne remet PAS la dette à zéro : le joueur
+// doit toujours la rembourser, mais avec une ardoise de pénalité effacée.
+// ──────────────────────────────────────────────
+async function debloquerCompte(pseudo) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+    if (!user.banque?.compteActif) {
+        return { ok: false, error: `❌ *${user.pseudo}* n'a pas de compte bancaire.` };
+    }
+
+    const b = user.banque;
+    if (!b.bloquePermanent && !b.suspendu) {
+        return { ok: false, error: `ℹ️ Le compte de *${user.pseudo}* n'est ni suspendu ni bloqué actuellement.` };
+    }
+
+    b.bloquePermanent = false;
+    b.suspendu = false;
+    b.suspensionCycle = 0;
+    b.suspensionFin = null;
+    b.dateLimite = (b.dette || 0) > 0 ? new Date(Date.now() + PRET_DELAI_MS).toISOString() : null;
+
+    pushLog(user, "admin", `🔓 Compte débloqué par un admin.${(b.dette || 0) > 0 ? " Nouveau délai de 24h pour rembourser." : ""}`);
+    await saveUser(key, user);
+
+    return { ok: true, user, detteRestante: b.dette || 0 };
+}
+
+// ──────────────────────────────────────────────
+// (Admin) Ban manuel d'une fiche : indépendant du système bancaire.
+// Empêche le joueur de jouer ou d'acheter des cartes (voir estFicheBloquee).
+// ──────────────────────────────────────────────
+async function banFiche(pseudo, raison) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+    if (user.banni) {
+        return { ok: false, error: `ℹ️ *${user.pseudo}* est déjà banni.` };
+    }
+
+    user.banni = true;
+    user.banniRaison = raison || null;
+    pushLog(user, "admin", `⛔ Fiche bannie par un admin${raison ? ` : ${raison}` : ""}`);
+    await saveUser(key, user);
+
+    return { ok: true, user };
+}
+
+async function unbanFiche(pseudo) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+    if (!user.banni) {
+        return { ok: false, error: `ℹ️ *${user.pseudo}* n'est pas banni.` };
+    }
+
+    user.banni = false;
+    user.banniRaison = null;
+    pushLog(user, "admin", `✅ Fiche débannie par un admin.`);
+    await saveUser(key, user);
+
+    return { ok: true, user };
+}
+
+// ──────────────────────────────────────────────
+// (Admin) Réinitialise entièrement une fiche (argent, stats, inventaire,
+// banque) tout en conservant le pseudo. Utile en cas de litige/abus.
+// ──────────────────────────────────────────────
+async function resetFiche(pseudo) {
+    const key = pseudo.toLowerCase();
+    const user = await getUser(key);
+
+    if (!user) {
+        return { ok: false, error: `❌ Joueur *${pseudo}* introuvable.` };
+    }
+
+    const nouvelle = {
+        pseudo: user.pseudo,
+        division: user.division || "Genin",
+        money: 0,
+        stars: 0,
+        cards: 0,
+        inventaire: [],
+        wins: 0,
+        loses: 0,
+        points: 0,
+        rank: user.rank || null,
+        lastDaily: null,
+        logs: [],
+        banni: false,
+        banniRaison: null,
+        banque: user.banque?.compteActif
+            ? {
+                  compteActif: true,
+                  pinHash: user.banque.pinHash,
+                  pinSalt: user.banque.pinSalt,
+                  solde: 0,
+                  dette: 0,
+                  dateEmprunt: null,
+                  dateLimite: null,
+                  dernierEmprunt: null,
+                  suspendu: false,
+                  suspensionCycle: 0,
+                  suspensionFin: null,
+                  bloquePermanent: false,
+              }
+            : user.banque,
+    };
+
+    pushLog(nouvelle, "admin", "♻️ Fiche entièrement réinitialisée par un admin.");
+    await saveUser(key, nouvelle);
+
+    return { ok: true, user: nouvelle };
 }
 
 // Affiche l'état de la dette en cours
@@ -643,12 +912,17 @@ async function getDette(pseudo) {
         return { ok: false, error: `❌ *${user.pseudo}* n'a pas de compte bancaire. Crée-en un avec *!creercompte <code>* (en PV).` };
     }
 
+    const b = user.banque;
     return {
         ok: true,
         user,
-        dette: user.banque.dette || 0,
-        dateLimite: user.banque.dateLimite,
-        enRetard: user.banque.dateLimite ? Date.now() > new Date(user.banque.dateLimite).getTime() : false,
+        dette: b.dette || 0,
+        dateLimite: b.dateLimite,
+        enRetard: b.dateLimite ? Date.now() > new Date(b.dateLimite).getTime() : false,
+        suspendu: !!b.suspendu,
+        suspensionFin: b.suspensionFin,
+        suspensionCycle: b.suspensionCycle || 0,
+        bloquePermanent: !!b.bloquePermanent,
     };
 }
 
@@ -775,6 +1049,9 @@ async function adminListerComptes() {
             solde: u.banque.solde || 0,
             dette: u.banque.dette || 0,
             dateLimite: u.banque.dateLimite,
+            suspendu: !!u.banque.suspendu,
+            suspensionCycle: u.banque.suspensionCycle || 0,
+            bloquePermanent: !!u.banque.bloquePermanent,
         }));
 }
 
@@ -797,6 +1074,7 @@ module.exports = {
     adminGiveCard,
     getGlobalStats,
     pushLog,
+    estFicheBloquee,
     // Banque
     creerCompteBancaire,
     verifierPin,
@@ -810,7 +1088,16 @@ module.exports = {
     enregistrerTransaction,
     getTransactions,
     adminListerComptes,
+    verifierEcheancesBancaires,
+    debloquerCompte,
+    // Fiches (admin)
+    banFiche,
+    unbanFiche,
+    resetFiche,
     PRET_TAUX_INTERET,
     PRET_DELAI_MS,
     PRET_MULTIPLICATEUR_PLAFOND,
+    EMPRUNT_COOLDOWN_MS,
+    SUSPENSION_DELAI_MS,
+    MAX_CYCLES_SUSPENSION,
 };

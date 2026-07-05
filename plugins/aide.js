@@ -266,19 +266,19 @@ const AIDE = {
     },
     emprunter: {
         usage: "!emprunter <code> <pseudo> <montant>",
-        description: "Emprunte du Ryo à la banque (plafond = 2x ta bourse, intérêt de 10%, remboursement sous 48h). Uniquement en PV.",
+        description: "Emprunte du Ryo à la banque (plafond = 2x ta bourse, intérêt de 10%, remboursement sous 24h). Un seul prêt autorisé par 24h et par compte, même si le précédent est déjà remboursé. En cas de non-remboursement sous 24h : compte suspendu 48h (jeux + achats de cartes bloqués), puis nouveau délai de 24h. Après 3 non-remboursements, le compte est bloqué en permanence jusqu'à ce qu'un admin utilise !unlock. Uniquement en PV.",
         exemple: "!emprunter 1234 paul 20000",
         category: "banque"
     },
     rembourser: {
         usage: "!rembourser <code> <pseudo> <montant>",
-        description: "Rembourse partiellement ou totalement ta dette en cours. Uniquement en PV.",
+        description: "Rembourse partiellement ou totalement ta dette en cours. Impossible pendant une suspension (48h) : il faut attendre la fin de la suspension pour que rembourser soit de nouveau accepté. Uniquement en PV.",
         exemple: "!rembourser 1234 paul 5000",
         category: "banque"
     },
     dette: {
         usage: "!dette <pseudo>",
-        description: "Affiche le montant de la dette en cours d'un joueur et sa date d'échéance.",
+        description: "Affiche le montant de la dette en cours d'un joueur, sa date d'échéance, et son statut (à jour, suspendu, ou bloqué en permanence).",
         exemple: "!dette paul",
         category: "banque"
     },
@@ -323,6 +323,13 @@ const AIDE = {
         usage: "!transactions <nombre>",
         description: "(Admin) Affiche les dernières transactions bancaires en cours sur l'ensemble du serveur.",
         exemple: "!transactions 30",
+        adminOnly: true,
+        category: "banque"
+    },
+    unlock: {
+        usage: "!unlock <pseudo>",
+        description: "(Admin) Débloque un compte bancaire suspendu ou bloqué en permanence suite à des prêts non remboursés. Si une dette reste due, un nouveau délai de 24h est accordé (la dette n'est PAS effacée).",
+        exemple: "!unlock paul",
         adminOnly: true,
         category: "banque"
     },
@@ -373,6 +380,41 @@ const AIDE = {
         usage: "!reset <pseudo>",
         description: "(Admin) Remet à zéro toutes les statistiques d'un joueur (bourse, stars, victoires, défaites, points), en gardant son pseudo.",
         exemple: "!reset paul",
+        adminOnly: true,
+        category: "admin"
+    },
+    banfiche: {
+        usage: "!banfiche <pseudo> [raison]",
+        description: "(Admin) Bannit manuellement une fiche : le joueur ne peut plus jouer à des jeux ni acheter de cartes, jusqu'à !unbanfiche. Indépendant du système de prêts bancaires.",
+        exemple: "!banfiche paul comportement toxique",
+        adminOnly: true,
+        category: "admin"
+    },
+    unbanfiche: {
+        usage: "!unbanfiche <pseudo>",
+        description: "(Admin) Lève un ban manuel posé avec !banfiche.",
+        exemple: "!unbanfiche paul",
+        adminOnly: true,
+        category: "admin"
+    },
+    resetfiche: {
+        usage: "!resetfiche <pseudo>",
+        description: "(Admin) Réinitialise ENTIÈREMENT une fiche : argent, stars, stats, inventaire de cartes, et compte bancaire (épargne/dette/suspensions), en gardant le pseudo. Plus complet que !reset qui ne touche que les stats.",
+        exemple: "!resetfiche paul",
+        adminOnly: true,
+        category: "admin"
+    },
+    listegroupes: {
+        usage: "!listegroupes",
+        description: "(Admin) Liste tous les groupes WhatsApp où le bot est actuellement présent, avec leur ID et leur nombre de membres.",
+        exemple: "!listegroupes",
+        adminOnly: true,
+        category: "admin"
+    },
+    quittergroupe: {
+        usage: "!quittergroupe <id_groupe>",
+        description: "(Admin) Fait quitter le bot d'un groupe WhatsApp donné. Tapée sans argument directement dans un groupe, le bot quitte ce groupe-là.",
+        exemple: "!quittergroupe 120363012345678901@g.us",
         adminOnly: true,
         category: "admin"
     },

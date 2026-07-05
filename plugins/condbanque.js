@@ -25,12 +25,18 @@ Choisis un code à *4 chiffres*. Il te sera demandé pour chaque opération sens
 ▱ Plafond : *${PRET_MULTIPLICATEUR_PLAFOND}x ta bourse actuelle*
 ▱ Intérêt fixe : *${tauxPct}%* sur le montant emprunté
 ▱ Délai de remboursement : *${delaiHeures}h*
-▱ Un seul prêt actif à la fois
+▱ Un seul prêt actif à la fois, *et un seul prêt par 24h* (même déjà remboursé)
+
+*⚠️ En cas de non-remboursement*
+▱ Passé le délai de *${delaiHeures}h* : compte *suspendu 48h* (jeux, achats de cartes et banque bloqués)
+▱ Après ces 48h : nouveau délai de *24h* pour rembourser
+▱ Cette pénalité peut se répéter *3 fois*
+▱ Au 3e non-remboursement : compte *bloqué en permanence*, débloqué uniquement par un admin (*!unlock*)
 
 *💰 Rembourser (!rembourser)*
 ▱ Remboursement libre, partiel ou total
 ▱ Tant que la dette n'est pas réglée, impossible d'emprunter à nouveau
-▱ Aucune pénalité automatique en cas de retard pour l'instant — mais reste correct, un admin garde un œil sur les dettes en retard 👀
+▱ Bloqué pendant une suspension : attends la fin de la suspension pour rembourser
 
 *🔁 Virement (!virement)*
 ▱ Transfert direct entre joueurs, sans frais

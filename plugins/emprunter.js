@@ -35,6 +35,7 @@ module.exports = {
 
         const dateLimite = new Date(result.dateLimite);
         const dateAffichee = dateLimite.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+        const delaiHeures = Math.round(PRET_DELAI_MS / (60 * 60 * 1000));
 
         await sock.sendMessage(from, {
             text:
@@ -46,10 +47,11 @@ module.exports = {
 ✅ Montant emprunté : *${result.montant}🔶*
 📈 Intérêt (${Math.round(PRET_TAUX_INTERET * 100)}%) : *+${result.interet}🔶*
 💳 Dette totale à rembourser : *${result.detteTotale}🔶*
-⏳ Échéance : *${dateAffichee}* (48h)
+⏳ Échéance : *${dateAffichee}* (${delaiHeures}h)
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 💰 Nouvelle bourse : *${result.user.money}🔶*
 _Utilise !rembourser <code> <montant> pour remettre la dette à 0._
+⚠️ _Passé ce délai, ton compte sera suspendu 48h (jeux + achats de cartes bloqués). Après 3 non-remboursements, le compte est bloqué en permanence._
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`
         });

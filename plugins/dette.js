@@ -33,7 +33,20 @@ module.exports = {
 
         const dateLimite = new Date(result.dateLimite);
         const dateAffichee = dateLimite.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
-        const statut = result.enRetard ? "🔴 *EN RETARD*" : "🟢 Dans les délais";
+
+        let statut = result.enRetard ? "🔴 *EN RETARD*" : "🟢 Dans les délais";
+        let ligneSupplementaire = "";
+
+        if (result.bloquePermanent) {
+            statut = "⛔ *COMPTE BLOQUÉ EN PERMANENCE*";
+            ligneSupplementaire = "\n👉 Seul un admin peut débloquer ce compte avec *!unlock*.";
+        } else if (result.suspendu) {
+            const finTxt = result.suspensionFin
+                ? new Date(result.suspensionFin).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })
+                : "bientôt";
+            statut = `⚠️ *SUSPENDU* (cycle ${result.suspensionCycle}/3)`;
+            ligneSupplementaire = `\n⏳ Fin de la suspension : *${finTxt}* — jeux et achats de cartes bloqués jusque-là.`;
+        }
 
         await sock.sendMessage(from, {
             text:
@@ -44,7 +57,7 @@ module.exports = {
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 💳 Montant dû : *${result.dette}🔶*
 ⏳ Échéance : *${dateAffichee}*
-📌 Statut : ${statut}
+📌 Statut : ${statut}${ligneSupplementaire}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 _Rembourse avec !rembourser <code> <montant> (en PV)._
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔

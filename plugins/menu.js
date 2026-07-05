@@ -82,6 +82,12 @@ _▲ Tape !aide <commande> pour le détail_
 🎴 !donnercarte <nom> <pseudo>
 📊 !stats globales
 🔄 !reset
+🔓 !unlock <pseudo>
+⛔ !banfiche <pseudo>
+✅ !unbanfiche <pseudo>
+♻️ !resetfiche <pseudo>
+🗂️ !listegroupes
+🚪 !quittergroupe <id>
 🤖 !photobot
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;

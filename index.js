@@ -10,6 +10,7 @@ const { Boom } = require("@hapi/boom");
 const fs = require("fs");
 const pino = require("pino");
 const http = require("http");
+const { verifierEcheancesBancaires } = require("./utils/users");
 
 // =========================
 // DOSSIER DE DONNÉES
@@ -189,5 +190,21 @@ async function startBot() {
         }
     });
 }
+
+// =========================
+// VÉRIFICATION PÉRIODIQUE DES PRÊTS
+// =========================
+// Indépendante de la connexion WhatsApp (ne touche que les données Redis) :
+// placée au niveau module pour n'avoir qu'un seul intervalle actif, même si
+// startBot() est rappelé plusieurs fois suite à des reconnexions.
+const VERIF_INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
+setInterval(async () => {
+    try {
+        const nb = await verifierEcheancesBancaires();
+        if (nb > 0) console.log(`🏦 ${nb} compte(s) bancaire(s) mis à jour (échéances de prêt).`);
+    } catch (e) {
+        console.error("Erreur vérification échéances bancaires:", e);
+    }
+}, VERIF_INTERVAL_MS);
 
 startBot();
