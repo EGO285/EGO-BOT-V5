@@ -63,7 +63,8 @@ _▲ Tape !aide <commande> pour le détail_
 🔁 !doubleornothing
 🔢 !devine
 🎲 !parilibre debut <p1> <p2>
-💵 !parier <pseudo> <montant> <p_choisi>
+📋 !parilibre liste
+💵 !parier <pseudo> <montant> <p_choisi> [id]
 
 ⟡ *BANQUE* 🏦
 🆕 !creercompte <code> <pseudo>

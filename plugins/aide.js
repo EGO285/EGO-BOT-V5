@@ -384,14 +384,14 @@ const AIDE = {
         category: "admin"
     },
     parilibre: {
-        usage: "!parilibre debut <pseudo1> <pseudo2>  |  !parilibre off winner: <pseudo>",
-        description: "Ouvre une session de paris 1v1 entre deux joueurs. Les cotes sont calculées automatiquement à partir de leur classement (points) : plus l'écart de niveau est grand, plus la cote de l'outsider est élevée. La clôture (déclaration du vainqueur) est réservée à un admin, qui règle alors automatiquement tous les paris.",
+        usage: "!parilibre debut <p1> <p2>  |  !parilibre liste  |  !parilibre off [id] winner: <pseudo>",
+        description: "Ouvre une session de paris 1v1 entre deux joueurs (plusieurs sessions peuvent tourner en même temps dans le même chat). Les cotes sont calculées à partir du classement (points) des deux joueurs. La clôture (!parilibre off) n'est pas réservée aux admins, mais uniquement à la personne qui a ouvert la session concernée.",
         exemple: "!parilibre debut naruto sasuke",
         category: "casino"
     },
     parier: {
-        usage: "!parier <ton_pseudo> <montant> <pseudo_choisi>",
-        description: "Place une mise sur l'un des deux joueurs d'une session de paris libre active dans ce chat (voir !parilibre). La mise est débitée immédiatement ; le gain (mise × cote) n'est crédité qu'à la clôture de la session si ton favori gagne.",
+        usage: "!parier <ton_pseudo> <montant> <pseudo_choisi> [id]",
+        description: "Place une mise sur l'un des deux joueurs d'une session de paris libre active. Si plusieurs sessions actives impliquent ce pseudo, précise l'ID de la session (visible via !parilibre liste). La mise est débitée immédiatement ; le gain (mise × cote) n'est crédité qu'à la clôture si ton favori gagne.",
         exemple: "!parier paul 5000 naruto",
         category: "casino"
     },

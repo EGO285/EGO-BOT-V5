@@ -4,13 +4,23 @@ const dbPath = "./data/parisLibres.json";
 
 function loadDB() {
     if (!fs.existsSync(dbPath)) {
-        fs.writeFileSync(dbPath, JSON.stringify({ active: {} }, null, 2));
+        fs.writeFileSync(dbPath, JSON.stringify({ nextId: 1, active: {} }, null, 2));
     }
-    return JSON.parse(fs.readFileSync(dbPath));
+    const db = JSON.parse(fs.readFileSync(dbPath));
+    if (!db.nextId) db.nextId = 1;
+    if (!db.active) db.active = {};
+    return db;
 }
 
 function saveDB(db) {
     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+}
+
+// Génère un nouvel ID de session (unique et croissant sur toute la durée de vie du bot)
+function nextSessionId(db) {
+    const id = String(db.nextId);
+    db.nextId += 1;
+    return id;
 }
 
 // ──────────────────────────────────────────────
@@ -37,4 +47,4 @@ function calculerCotes(pointsA, pointsB) {
     return { coteA, coteB };
 }
 
-module.exports = { loadDB, saveDB, calculerCotes, dbPath };
+module.exports = { loadDB, saveDB, calculerCotes, nextSessionId, dbPath };
