@@ -1,5 +1,5 @@
 const { saveUser, checkCanPlay, pushLog } = require("../utils/users");
-const { loadDB, saveDB } = require("../utils/parisLibres");
+const { getSessionsForChat, saveSessionsForChat } = require("../utils/parisLibres");
 
 module.exports = {
     command: "!parier",
@@ -18,11 +18,9 @@ module.exports = {
             });
         }
 
-        const db = loadDB();
-        const sessions = db.active[from] || {};
+        const sessions = await getSessionsForChat(from);
         const cibleLower = cible.toLowerCase();
 
-        // Détermine sur quelle(s) session(s) ce pari peut s'appliquer
         let candidats;
         if (idArg) {
             if (!/^\d+$/.test(idArg) || !sessions[idArg]) {
@@ -55,7 +53,9 @@ module.exports = {
         const key = pseudo.toLowerCase();
 
         if (session.bets.some(b => b.pseudo.toLowerCase() === key)) {
-            return sock.sendMessage(from, { text: `❌ *${pseudo}* a déjà parié sur la session #${id}.` });
+            return sock.sendMessage(from, {
+                text: `❌ *${pseudo}* a déjà parié sur la session #${id}. Utilise *!modifierpari ${pseudo} <nouveau_montant> ${id}* pour changer le montant.`
+            });
         }
 
         const check = await checkCanPlay(pseudo, montant);
@@ -71,7 +71,7 @@ module.exports = {
         await saveUser(check.key, check.user);
 
         session.bets.push({ pseudo: check.user.pseudo, cible: cibleFinale, montant, cote });
-        saveDB(db);
+        await saveSessionsForChat(from, sessions);
 
         await sock.sendMessage(from, {
             text:

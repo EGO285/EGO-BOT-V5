@@ -1,5 +1,11 @@
 const { getUser, saveUser, pushLog } = require("../utils/users");
-const { loadDB, saveDB, calculerCotes, nextSessionId } = require("../utils/parisLibres");
+const {
+    getSessionsForChat,
+    saveSessionsForChat,
+    nextSessionId,
+    calculerCotes,
+    archiverSession,
+} = require("../utils/parisLibres");
 
 module.exports = {
     command: "!parilibre",
@@ -9,9 +15,7 @@ module.exports = {
         const args = text.replace("!parilibre", "").trim().split(" ");
         const sousCommande = (args[0] || "").toLowerCase();
 
-        const db = loadDB();
-        if (!db.active[from]) db.active[from] = {};
-        const sessions = db.active[from];
+        const sessions = await getSessionsForChat(from);
 
         // =========================
         // 🟢 OUVRIR UNE NOUVELLE SESSION (plusieurs peuvent tourner en même temps)
@@ -35,7 +39,7 @@ module.exports = {
             }
 
             const { coteA, coteB } = calculerCotes(userP1.points || 0, userP2.points || 0);
-            const id = nextSessionId(db);
+            const id = await nextSessionId();
 
             sessions[id] = {
                 p1: userP1.pseudo,
@@ -48,7 +52,7 @@ module.exports = {
                 openedAt: new Date().toISOString(),
                 bets: []
             };
-            saveDB(db);
+            await saveSessionsForChat(from, sessions);
 
             return sock.sendMessage(from, {
                 text:
@@ -91,7 +95,7 @@ ${Object.keys(sessions).length > 1 ? `_(plusieurs sessions actives ici — préc
 
         // =========================
         // 🔴 CLÔTURER ET RÉGLER UNE SESSION
-        // Ouvert à tous — mais réservé à la personne qui a ouvert la session,
+        // Réservé à la personne qui a ouvert la session (pas un rôle admin),
         // pour éviter qu'un tiers ne déclare un faux vainqueur sur un pari
         // qui ne lui appartient pas.
         // =========================
@@ -102,7 +106,6 @@ ${Object.keys(sessions).length > 1 ? `_(plusieurs sessions actives ici — préc
                 return sock.sendMessage(from, { text: "❌ Aucune session de paris active dans ce chat." });
             }
 
-            // ID explicite en 2e argument (ex: "!parilibre off 3 winner: naruto") ?
             let id = (args[1] && /^\d+$/.test(args[1])) ? args[1] : null;
 
             if (!id) {
@@ -139,26 +142,50 @@ ${Object.keys(sessions).length > 1 ? `_(plusieurs sessions actives ici — préc
             }
 
             let recap = "";
+            const betsArchive = [];
 
             for (const bet of session.bets) {
                 const bettorKey = bet.pseudo.toLowerCase();
                 const bettorUser = await getUser(bettorKey);
-                if (!bettorUser) continue; // fiche supprimée entre-temps, on ignore ce pari
 
-                if (bet.cible.toLowerCase() === gagnant.toLowerCase()) {
-                    const gain = Math.round(bet.montant * bet.cote);
-                    bettorUser.money = (bettorUser.money || 0) + gain;
-                    pushLog(bettorUser, "pari", `Pari libre #${id} gagné sur ${gagnant} : mise ${bet.montant}🔶 à la cote ${bet.cote} → +${gain}🔶`);
+                const gagne = bet.cible.toLowerCase() === gagnant.toLowerCase();
+                const gain = gagne ? Math.round(bet.montant * bet.cote) : 0;
+
+                if (bettorUser) {
+                    if (gagne) {
+                        bettorUser.money = (bettorUser.money || 0) + gain;
+                        pushLog(bettorUser, "pari", `Pari libre #${id} gagné sur ${gagnant} : mise ${bet.montant}🔶 à la cote ${bet.cote} → +${gain}🔶`);
+                    } else {
+                        pushLog(bettorUser, "pari", `Pari libre #${id} perdu sur ${bet.cible} : mise ${bet.montant}🔶 perdue`);
+                    }
                     await saveUser(bettorKey, bettorUser);
-                    recap += `✅ *${bettorUser.pseudo}* : +${gain}🔶 (mise ${bet.montant}🔶 × cote ${bet.cote})\n`;
-                } else {
-                    pushLog(bettorUser, "pari", `Pari libre #${id} perdu sur ${bet.cible} : mise ${bet.montant}🔶 perdue`);
-                    recap += `❌ *${bettorUser.pseudo}* : -${bet.montant}🔶 (perdu)\n`;
+                    recap += gagne
+                        ? `✅ *${bettorUser.pseudo}* : +${gain}🔶 (mise ${bet.montant}🔶 × cote ${bet.cote})\n`
+                        : `❌ *${bettorUser.pseudo}* : -${bet.montant}🔶 (perdu)\n`;
                 }
+
+                betsArchive.push({ pseudo: bet.pseudo, cible: bet.cible, montant: bet.montant, cote: bet.cote, gagne, gain });
             }
 
+            await archiverSession({
+                id,
+                chatJid: from,
+                p1: session.p1,
+                p2: session.p2,
+                pointsP1: session.pointsP1,
+                pointsP2: session.pointsP2,
+                coteP1: session.coteP1,
+                coteP2: session.coteP2,
+                gagnant,
+                openedBy: session.openedBy,
+                openedAt: session.openedAt,
+                closedBy: senderNumber,
+                closedAt: new Date().toISOString(),
+                bets: betsArchive,
+            });
+
             delete sessions[id];
-            saveDB(db);
+            await saveSessionsForChat(from, sessions);
 
             return sock.sendMessage(from, {
                 text:
@@ -188,6 +215,9 @@ _Clôturé par @${senderNumber}_
 👉 *!parilibre debut <pseudo1> <pseudo2>* — Ouvrir une session (plusieurs peuvent tourner en même temps)
 👉 *!parilibre liste* — Voir les sessions actives dans ce chat
 👉 *!parier <ton_pseudo> <montant> <pseudo_choisi> [id]* — Parier
+👉 *!modifierpari <ton_pseudo> <nouveau_montant> [id]* — Changer le montant d'un pari déjà placé
+👉 *!mesparis <ton_pseudo>* — Voir tous tes paris en cours (tous chats confondus)
+👉 *!parishistorique [pseudo]* — Voir l'historique des paris clôturés
 👉 *!parilibre off [id] winner: <pseudo>* — Clôturer et régler (réservé à celui qui a ouvert la session)
 
 _Les cotes sont calculées automatiquement à partir du classement (points) des deux joueurs : plus l'écart est grand, plus la cote de l'outsider est élevée._`

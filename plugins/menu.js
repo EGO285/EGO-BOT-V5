@@ -65,6 +65,9 @@ _▲ Tape !aide <commande> pour le détail_
 🎲 !parilibre debut <p1> <p2>
 📋 !parilibre liste
 💵 !parier <pseudo> <montant> <p_choisi> [id]
+✏️ !modifierpari <pseudo> <montant> [id]
+📊 !mesparis <pseudo>
+📜 !parishistorique [pseudo]
 
 ⟡ *BANQUE* 🏦
 🆕 !creercompte <code> <pseudo>

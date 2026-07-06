@@ -395,6 +395,24 @@ const AIDE = {
         exemple: "!parier paul 5000 naruto",
         category: "casino"
     },
+    modifierpari: {
+        usage: "!modifierpari <pseudo> <nouveau_montant> [id]",
+        description: "Change le montant d'un pari déjà placé (la cote reste celle du pari initial). Si le nouveau montant est plus élevé, la différence est débitée ; s'il est plus bas, la différence est remboursée.",
+        exemple: "!modifierpari paul 8000",
+        category: "casino"
+    },
+    mesparis: {
+        usage: "!mesparis <pseudo>",
+        description: "Affiche tous les paris en cours d'un joueur, tous chats confondus (montant, cible, cote, gain potentiel).",
+        exemple: "!mesparis paul",
+        category: "casino"
+    },
+    parishistorique: {
+        usage: "!parishistorique [pseudo]",
+        description: "Affiche l'historique des sessions de paris déjà clôturées (les 10 plus récentes). Avec un pseudo, filtre sur les paris de ce joueur ou les sessions où il s'est battu.",
+        exemple: "!parishistorique paul",
+        category: "casino"
+    },
     banfiche: {
         usage: "!banfiche <pseudo> [raison]",
         description: "(Admin) Bannit manuellement une fiche : le joueur ne peut plus jouer à des jeux ni acheter de cartes, jusqu'à !unbanfiche. Indépendant du système de prêts bancaires.",
