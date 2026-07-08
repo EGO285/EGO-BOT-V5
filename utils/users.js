@@ -105,7 +105,9 @@ _▲BOURSE💰: *${u.money}🔶*_
 
 _▲STARS⭐️ : *${u.stars}⭐️*_
 
-_▲Card de Réduction 🎟: *${u.cards || 0} 🎟*_
+_▲Card de Réduction 🎟: *${u.ticketsReduction || 0} 🎟* (-30% sur les cartes)_
+
+_▲Cartes possédées 🎴: *${u.cards || 0}*_
 ▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰
 ░░░░░░░░░░░░░░░░░░░
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
@@ -239,7 +241,13 @@ function parsePrix(entree) {
 // Le joueur a le choix de la devise quand la carte propose plusieurs prix :
 // on prend le premier prix de la liste que le joueur peut se permettre.
 // ──────────────────────────────────────────────
-async function checkAndBuyCard(pseudo, carte) {
+// ──────────────────────────────────────────────
+// Évalue un achat de carte SANS rien débiter : vérifie la fiche, le blocage,
+// et détermine quel prix (Ryo ou Stars) le joueur peut payer.
+// Utilisé par !acheter pour décider s'il faut proposer un ticket de réduction
+// avant de finaliser (voir finaliserAchatCarte).
+// ──────────────────────────────────────────────
+async function evaluerAchatCarte(pseudo, carte) {
     if (!pseudo) {
         return { ok: false, error: "❌ Indique ton pseudo. Exemple : *!acheter Naruto Uzumaki paul*" };
     }
@@ -262,33 +270,73 @@ async function checkAndBuyCard(pseudo, carte) {
         return { ok: false, error: `❌ La carte *${carte.nom}* n'a pas encore de prix défini. Demande à un admin de le configurer.` };
     }
 
-    // Cherche le premier prix (Ryo ou Stars) que le joueur peut payer
+    // Cherche le premier prix (Ryo ou Stars) que le joueur peut payer AU PLEIN TARIF.
+    // (Si un ticket de réduction est utilisé, finaliserAchatCarte retente avec -30%.)
     const choix = prixListe.find(p =>
         (p.devise === "money" && (user.money || 0) >= p.montant) ||
         (p.devise === "stars" && (user.stars || 0) >= p.montant)
     );
 
+    // Si le plein tarif n'est payable pour aucune devise, retente en simulant
+    // la réduction -30% (au cas où un ticket permettrait de passer l'achat).
     if (!choix) {
-        const detail = prixListe.map(p => p.devise === "money" ? `${p.montant}🔶` : `${p.montant}⭐`).join(" ou ");
-        return {
-            ok: false,
-            error: `❌ Fonds insuffisants pour *${carte.nom}*.\n💰 Bourse : *${user.money}🔶* — ⭐ Stars : *${user.stars}*\n🎯 Prix demandé : *${detail}*`
-        };
+        const choixAvecReduc = prixListe.find(p => {
+            const montantReduit = Math.round(p.montant * 0.7);
+            return (p.devise === "money" && (user.money || 0) >= montantReduit) ||
+                   (p.devise === "stars" && (user.stars || 0) >= montantReduit);
+        });
+
+        if (!choixAvecReduc || !(user.ticketsReduction > 0)) {
+            const detail = prixListe.map(p => p.devise === "money" ? `${p.montant}🔶` : `${p.montant}⭐`).join(" ou ");
+            return {
+                ok: false,
+                error: `❌ Fonds insuffisants pour *${carte.nom}*.\n💰 Bourse : *${user.money}🔶* — ⭐ Stars : *${user.stars}*\n🎯 Prix demandé : *${detail}*`
+            };
+        }
+
+        return { ok: true, key, user, carte, choix: choixAvecReduc, requiertTicketPourPayer: true };
+    }
+
+    return { ok: true, key, user, carte, choix, requiertTicketPourPayer: false };
+}
+
+// ──────────────────────────────────────────────
+// Finalise un achat déjà évalué par evaluerAchatCarte : débite le prix
+// (avec -30% et consommation d'un ticket si utiliserTicket=true), ajoute
+// la carte à l'inventaire, et sauvegarde.
+// ──────────────────────────────────────────────
+async function finaliserAchatCarte(key, user, carte, choix, utiliserTicket) {
+    let montantPaye = choix.montant;
+
+    if (utiliserTicket) {
+        montantPaye = Math.round(choix.montant * 0.7);
+        user.ticketsReduction = Math.max(0, (user.ticketsReduction || 0) - 1);
     }
 
     if (choix.devise === "money") {
-        user.money = (user.money || 0) - choix.montant;
+        user.money = (user.money || 0) - montantPaye;
     } else {
-        user.stars = (user.stars || 0) - choix.montant;
+        user.stars = (user.stars || 0) - montantPaye;
     }
 
     if (!Array.isArray(user.inventaire)) user.inventaire = [];
     user.inventaire.push(carte.nom);
     user.cards = user.inventaire.length;
 
+    pushLog(user, "achat", `Achat de ${carte.nom} pour ${montantPaye}${choix.devise === "money" ? "🔶" : "⭐"}${utiliserTicket ? " (ticket de réduction -30% utilisé)" : ""}`);
     await saveUser(key, user);
 
-    return { ok: true, user, prixPaye: choix };
+    return { ok: true, user, carte, prixPaye: { devise: choix.devise, montant: montantPaye }, ticketUtilise: !!utiliserTicket };
+}
+
+// Conservé pour compatibilité : achat direct sans passer par la confirmation de ticket.
+async function checkAndBuyCard(pseudo, carte) {
+    const evaluation = await evaluerAchatCarte(pseudo, carte);
+    if (!evaluation.ok) return evaluation;
+    if (evaluation.requiertTicketPourPayer) {
+        return { ok: false, error: `❌ Fonds insuffisants sans ticket de réduction pour *${carte.nom}*.` };
+    }
+    return finaliserAchatCarte(evaluation.key, evaluation.user, evaluation.carte, evaluation.choix, false);
 }
 
 // ──────────────────────────────────────────────
@@ -866,6 +914,7 @@ async function resetFiche(pseudo) {
         money: 0,
         stars: 0,
         cards: 0,
+        ticketsReduction: 0,
         inventaire: [],
         wins: 0,
         loses: 0,
@@ -1067,6 +1116,8 @@ module.exports = {
     applyCasinoResult,
     parsePrix,
     checkAndBuyCard,
+    evaluerAchatCarte,
+    finaliserAchatCarte,
     checkAndSellCard,
     checkAndExchangeCard,
     executeExchange,

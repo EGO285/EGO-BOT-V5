@@ -159,8 +159,14 @@ const AIDE = {
     },
     acheter: {
         usage: "!acheter <nom de la carte> <pseudo>",
-        description: "Achète une carte de la boutique. Le bot paie automatiquement avec du Ryo ou des Stars selon ce que le joueur peut se permettre. La carte achetée s'ajoute à l'inventaire visible dans !fiche.",
+        description: "Achète une carte de la boutique. Le bot paie automatiquement avec du Ryo ou des Stars selon ce que le joueur peut se permettre. Si le joueur a des tickets de réduction (-30%), le bot demande confirmation avant de valider (voir !confirmerachat). La carte achetée s'ajoute à l'inventaire visible dans !fiche.",
         exemple: "!acheter Naruto Uzumaki paul",
+        category: "cartes"
+    },
+    confirmerachat: {
+        usage: "!confirmerachat <oui|non> <pseudo>",
+        description: "Répond à la proposition d'utiliser un ticket de réduction faite par !acheter. 'oui' applique -30% et consomme un ticket, 'non' paye plein tarif. La demande expire après 5 minutes sans réponse.",
+        exemple: "!confirmerachat oui paul",
         category: "cartes"
     },
     vendre: {
@@ -357,9 +363,16 @@ const AIDE = {
         category: "admin"
     },
     setstats: {
-        usage: "!setstats <pseudo> <argent|stars> <valeur>",
-        description: "(Admin) Fixe directement la bourse ou les stars d'un joueur à une valeur précise (remplace l'ancienne valeur).",
-        exemple: "!setstats paul argent 50000",
+        usage: "!setstats <pseudo> <argent|stars|ticket> <valeur>",
+        description: "(Admin) Fixe directement la bourse, les stars, ou le nombre de tickets de réduction d'un joueur à une valeur précise (remplace l'ancienne valeur).",
+        exemple: "!setstats paul ticket 3",
+        adminOnly: true,
+        category: "admin"
+    },
+    setmenumedia: {
+        usage: "!setmenumedia <nom_du_menu> <url>  |  (en réponse à une image/vidéo) !setmenumedia <nom_du_menu>",
+        description: "(Admin) Change l'image ou la vidéo affichée par un menu du bot (ex: !menu). Le type (image/vidéo) est détecté automatiquement selon l'URL ou le média envoyé.",
+        exemple: "!setmenumedia menu https://files.catbox.moe/exemple.mp4",
         adminOnly: true,
         category: "admin"
     },

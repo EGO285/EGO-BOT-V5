@@ -1,3 +1,7 @@
+const { getMenuMedia } = require("../utils/menuMedia");
+
+const MEDIA_PAR_DEFAUT = "https://files.catbox.moe/ys8fij.jpg";
+
 module.exports = {
     command: "!menu",
 
@@ -94,14 +98,17 @@ _▲ Tape !aide <commande> pour le détail_
 ♻️ !resetfiche <pseudo>
 🗂️ !listegroupes
 🚪 !quittergroupe <id>
+🖼️ !setmenumedia <menu> <url>
 🤖 !photobot
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
 
-        await sock.sendMessage(from, {
-            image: { url: "https://files.catbox.moe/ys8fij.jpg" },
-            caption,
-            mentions: [senderJid]
-        });
+        const media = await getMenuMedia("menu", MEDIA_PAR_DEFAUT);
+
+        const payload = media.type === "video"
+            ? { video: { url: media.url }, caption, mentions: [senderJid] }
+            : { image: { url: media.url }, caption, mentions: [senderJid] };
+
+        await sock.sendMessage(from, payload);
     }
 };

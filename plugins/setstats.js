@@ -7,20 +7,21 @@ module.exports = {
     async handler(sock, m, text, { senderJid, senderNumber }) {
         const from = m.key.remoteJid;
 
-        // Format : !setstats <pseudo> <argent|stars> <valeur>
+        // Format : !setstats <pseudo> <argent|stars|ticket> <valeur>
         const args = text.replace("!setstats", "").trim().split(" ");
         const name = args[0]?.toLowerCase();
         const champ = (args[1] || "").toLowerCase();
         const valeur = parseInt(args[2]);
 
-        if (!name || !["argent", "stars"].includes(champ) || isNaN(valeur)) {
+        if (!name || !["argent", "stars", "ticket"].includes(champ) || isNaN(valeur)) {
             return sock.sendMessage(from, {
                 text:
-`❌ Format : *!setstats <pseudo> <argent|stars> <valeur>*
+`❌ Format : *!setstats <pseudo> <argent|stars|ticket> <valeur>*
 
 💡 Exemples :
 !setstats paul argent 50000
-!setstats paul stars 10`
+!setstats paul stars 10
+!setstats paul ticket 3`
             });
         }
 
@@ -32,14 +33,20 @@ module.exports = {
 
         if (champ === "argent") {
             user.money = valeur;
-        } else {
+        } else if (champ === "stars") {
             user.stars = valeur;
+        } else {
+            user.ticketsReduction = Math.max(0, valeur);
         }
 
         await saveUser(name, user);
 
-        const label = champ === "argent" ? "💰 BOURSE" : "⭐ STARS";
-        const nouvelleValeur = champ === "argent" ? `${user.money}🔶` : `${user.stars}⭐`;
+        const labels = { argent: "💰 BOURSE", stars: "⭐ STARS", ticket: "🎟️ TICKETS DE RÉDUCTION" };
+        const label = labels[champ];
+        const nouvelleValeur =
+            champ === "argent" ? `${user.money}🔶` :
+            champ === "stars" ? `${user.stars}⭐` :
+            `${user.ticketsReduction}🎟️`;
 
         await sock.sendMessage(from, {
             text:

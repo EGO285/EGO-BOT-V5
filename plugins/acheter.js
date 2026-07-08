@@ -1,5 +1,6 @@
 const cartes = require("../cartes.json");
-const { checkAndBuyCard } = require("../utils/users");
+const { evaluerAchatCarte, finaliserAchatCarte } = require("../utils/users");
+const { setPending } = require("../utils/achatsEnAttente");
 
 // Recherche tolérante, identique à celle de !carte : insensible à la casse,
 // correspondance exacte en priorité, sinon partielle si non ambiguë.
@@ -62,13 +63,50 @@ _Tape !boutique pour voir les prix._
         }
 
         const carte = result;
-        const achat = await checkAndBuyCard(pseudo, carte);
+        const evaluation = await evaluerAchatCarte(pseudo, carte);
 
-        if (!achat.ok) {
-            return sock.sendMessage(from, { text: achat.error });
+        if (!evaluation.ok) {
+            return sock.sendMessage(from, { text: evaluation.error });
         }
 
-        const { user, prixPaye } = achat;
+        const { key, user, choix, requiertTicketPourPayer } = evaluation;
+        const prixLabel = choix.devise === "money" ? `${choix.montant}🔶` : `${choix.montant}⭐`;
+        const prixReduitLabel = choix.devise === "money"
+            ? `${Math.round(choix.montant * 0.7)}🔶`
+            : `${Math.round(choix.montant * 0.7)}⭐`;
+
+        // Le joueur a des tickets de réduction : on lui demande avant de valider.
+        // (Si le plein tarif n'est pas payable, un ticket est OBLIGATOIRE pour continuer.)
+        if ((user.ticketsReduction || 0) > 0) {
+            setPending(from, pseudo, { carte, choix });
+
+            return sock.sendMessage(from, {
+                text:
+`🎟️ *${user.pseudo}* possède *${user.ticketsReduction}* ticket(s) de réduction (-30%).
+
+🎴 Carte : *${carte.nom}*
+💸 Prix normal : *${prixLabel}*
+🎟️ Prix avec ticket : *${prixReduitLabel}*
+${requiertTicketPourPayer ? "\n⚠️ Fonds insuffisants au prix normal — le ticket est nécessaire pour cet achat." : ""}
+👉 Utiliser un ticket ? *!confirmerachat oui ${pseudo}*
+👉 Payer plein tarif ? *!confirmerachat non ${pseudo}*
+_(sans réponse sous 5 minutes, la demande expire)_`
+            });
+        }
+
+        if (requiertTicketPourPayer) {
+            return sock.sendMessage(from, {
+                text: `❌ Fonds insuffisants pour *${carte.nom}* et aucun ticket de réduction disponible.\n💰 Bourse : *${user.money}🔶* — ⭐ Stars : *${user.stars}*\n🎯 Prix demandé : *${prixLabel}*`
+            });
+        }
+
+        const achat = await finaliserAchatCarte(key, user, carte, choix, false);
+        return envoyerConfirmationAchat(sock, from, senderJid, senderNumber, achat);
+    }
+};
+
+async function envoyerConfirmationAchat(sock, from, senderJid, senderNumber, achat) {
+        const { user, carte, prixPaye, ticketUtilise } = achat;
         const prixLabel = prixPaye.devise === "money" ? `${prixPaye.montant}🔶` : `${prixPaye.montant}⭐`;
         const soldeLabel = prixPaye.devise === "money"
             ? `💰 Nouvelle bourse : *${user.money}🔶*`
@@ -86,13 +124,15 @@ _Acheté par @${senderNumber}_
 
 🎴 Carte : *${carte.nom}*
 📺 Anime : *${carte.anime}*
-💸 Prix payé : *${prixLabel}*
+💸 Prix payé : *${prixLabel}*${ticketUtilise ? " _(ticket de réduction -30% utilisé)_" : ""}
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ${soldeLabel}
-🎟 Cartes possédées : *${user.cards}*
+🎟 Tickets de réduction restants : *${user.ticketsReduction || 0}*
+🎴 Cartes possédées : *${user.cards}*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`,
             mentions: [senderJid]
         });
-    }
-};
+}
+
+module.exports.envoyerConfirmationAchat = envoyerConfirmationAchat;

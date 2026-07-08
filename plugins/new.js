@@ -26,6 +26,7 @@ module.exports = {
             money: 0,
             stars: 0,
             cards: 0,
+            ticketsReduction: 0,
             wins: 0,
             loses: 0,
             points: 0,
