@@ -109,6 +109,11 @@ _▲ Tape !aide <commande> pour le détail_
             ? { video: { url: media.url }, caption, mentions: [senderJid] }
             : { image: { url: media.url }, caption, mentions: [senderJid] };
 
-        await sock.sendMessage(from, payload);
+        try {
+            await sock.sendMessage(from, payload);
+        } catch (e) {
+            console.error("⚠️ Média de !menu introuvable, envoi du texte seul :", e.message);
+            await sock.sendMessage(from, { text: caption, mentions: [senderJid] });
+        }
     }
 };

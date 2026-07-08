@@ -25,11 +25,19 @@ module.exports = {
         // Cas 1 : URL fournie directement (image OU vidéo, détecté par l'extension)
         if (url) {
             const media = await setMenuMedia(nom, url);
-            return sock.sendMessage(from, {
-                [media.type]: { url: media.url },
-                caption: `✅ Média du menu *${nom}* mis à jour (${media.type}) par @${senderNumber}.`,
-                mentions: [senderJid]
-            });
+            try {
+                await sock.sendMessage(from, {
+                    [media.type]: { url: media.url },
+                    caption: `✅ Média du menu *${nom}* mis à jour (${media.type}) par @${senderNumber}.`,
+                    mentions: [senderJid]
+                });
+            } catch (e) {
+                await sock.sendMessage(from, {
+                    text: `⚠️ Média enregistré, mais impossible de le prévisualiser (l'URL semble cassée ou inaccessible : ${e.message}).\nVérifie le lien avant de compter dessus — sinon *!menu*/*!latence* afficheront le texte seul en repli.`,
+                    mentions: [senderJid]
+                });
+            }
+            return;
         }
 
         // Cas 2 : image ou vidéo jointe en réponse

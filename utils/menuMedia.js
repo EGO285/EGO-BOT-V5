@@ -19,7 +19,7 @@ const redis = new Redis({
 const PREFIX = "menuMedia:";
 
 // Noms de menus reconnus (pour lister les options disponibles à l'admin)
-const MENUS_CONNUS = ["menu"];
+const MENUS_CONNUS = ["menu", "latence"];
 
 // Détecte si une URL pointe vers une vidéo (extension connue) ou une image par défaut
 function detecterType(url) {

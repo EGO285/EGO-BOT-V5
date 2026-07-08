@@ -15,6 +15,21 @@ const QRCode = require("qrcode");
 const { verifierEcheancesBancaires } = require("./utils/users");
 
 // =========================
+// FILET DE SÉCURITÉ ANTI-CRASH
+// =========================
+// Sans ça, UNE SEULE erreur non rattrapée n'importe où dans le bot (ex: une
+// image/vidéo dont l'URL est cassée ou expirée, envoyée via sock.sendMessage)
+// arrête TOUT le processus Node — le bot entier se déconnecte de WhatsApp
+// jusqu'au prochain redémarrage manuel ou automatique sur Render.
+// On journalise l'erreur au lieu de laisser le process mourir.
+process.on("unhandledRejection", (reason) => {
+    console.error("⚠️ Promesse rejetée non gérée (le bot continue de tourner) :", reason);
+});
+process.on("uncaughtException", (err) => {
+    console.error("⚠️ Exception non gérée (le bot continue de tourner) :", err);
+});
+
+// =========================
 // DOSSIER DE DONNÉES
 // =========================
 // Sur un disque vierge (premier déploiement Render, ou après un redéploiement
