@@ -100,6 +100,19 @@ _▲ Tape !aide <commande> pour le détail_
 🚪 !quittergroupe <id>
 🖼️ !setmenumedia <menu> <url>
 🤖 !photobot
+📣 !broadcast <message>
+
+⟡ *GESTION DE GROUPE* 🛡️
+📢 !tagall [message]
+🔔 !hidetag [message]
+👢 !kick @membre
+⬆️ !promote @membre
+⬇️ !demote @membre
+ℹ️ !groupinfo
+✏️ !setgroupname <nom>
+📝 !setgroupdesc <description>
+🔒 !fermergroupe
+🔓 !ouvrirgroupe
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
 

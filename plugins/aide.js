@@ -461,6 +461,75 @@ const AIDE = {
         adminOnly: true,
         category: "admin"
     },
+    broadcast: {
+        usage: "!broadcast <message>",
+        description: "(Admin) Diffuse un message dans TOUS les groupes où le bot est actuellement présent.",
+        exemple: "!broadcast Maintenance ce soir à 20h, le bot sera indisponible 10 minutes.",
+        adminOnly: true,
+        category: "admin"
+    },
+
+    // --- Gestion de groupe (admin du groupe OU admin du bot) ---
+    tagall: {
+        usage: "!tagall [message]",
+        description: "Mentionne visiblement tous les membres du groupe courant (la liste des numéros est affichée dans le message). Réservé aux admins du groupe ou du bot.",
+        exemple: "!tagall Réunion RP ce soir !",
+        category: "groupe"
+    },
+    hidetag: {
+        usage: "!hidetag [message]",
+        description: "Notifie tous les membres du groupe (ils reçoivent une notification) SANS afficher la liste des numéros dans le message. Réservé aux admins du groupe ou du bot.",
+        exemple: "!hidetag Regardez l'annonce ci-dessus !",
+        category: "groupe"
+    },
+    kick: {
+        usage: "!kick @membre [@membre2 ...]",
+        description: "Exclut un ou plusieurs membres mentionnés du groupe. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!kick @33612345678",
+        category: "groupe"
+    },
+    promote: {
+        usage: "!promote @membre [@membre2 ...]",
+        description: "Promeut un ou plusieurs membres mentionnés admin du groupe. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!promote @33612345678",
+        category: "groupe"
+    },
+    demote: {
+        usage: "!demote @membre [@membre2 ...]",
+        description: "Retire le statut admin d'un ou plusieurs membres mentionnés. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!demote @33612345678",
+        category: "groupe"
+    },
+    groupinfo: {
+        usage: "!groupinfo",
+        description: "Affiche les informations du groupe courant : nom, description, nombre de membres, liste des admins, et si le groupe est verrouillé.",
+        exemple: "!groupinfo",
+        category: "groupe"
+    },
+    setgroupname: {
+        usage: "!setgroupname <nouveau nom>",
+        description: "Change le nom du groupe courant. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!setgroupname Shinobi Storm RP 🔶",
+        category: "groupe"
+    },
+    setgroupdesc: {
+        usage: "!setgroupdesc <nouvelle description>",
+        description: "Change la description du groupe courant. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!setgroupdesc Bienvenue sur le serveur RP officiel !",
+        category: "groupe"
+    },
+    fermergroupe: {
+        usage: "!fermergroupe",
+        description: "Verrouille le groupe : seuls les admins peuvent écrire (mode annonces). Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!fermergroupe",
+        category: "groupe"
+    },
+    ouvrirgroupe: {
+        usage: "!ouvrirgroupe",
+        description: "Déverrouille le groupe : tous les membres peuvent de nouveau écrire. Le bot doit lui-même être admin du groupe. Réservé aux admins du groupe ou du bot.",
+        exemple: "!ouvrirgroupe",
+        category: "groupe"
+    },
 };
 
 // Image associée à chaque catégorie, affichée avec la réponse de !aide <commande>.
