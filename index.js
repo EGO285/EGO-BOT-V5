@@ -3,11 +3,15 @@ require("dotenv").config();
 const {
     default: makeWASocket,
     useMultiFileAuthState,
-    DisconnectReason
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    isJidBroadcast,
 } = require("@whiskeysockets/baileys");
 
 const { Boom } = require("@hapi/boom");
 const fs = require("fs");
+const path = require("path");
 const pino = require("pino");
 const http = require("http");
 const crypto = require("crypto");
@@ -17,11 +21,6 @@ const { verifierEcheancesBancaires } = require("./utils/users");
 // =========================
 // FILET DE SÉCURITÉ ANTI-CRASH
 // =========================
-// Sans ça, UNE SEULE erreur non rattrapée n'importe où dans le bot (ex: une
-// image/vidéo dont l'URL est cassée ou expirée, envoyée via sock.sendMessage)
-// arrête TOUT le processus Node — le bot entier se déconnecte de WhatsApp
-// jusqu'au prochain redémarrage manuel ou automatique sur Render.
-// On journalise l'erreur au lieu de laisser le process mourir.
 process.on("unhandledRejection", (reason) => {
     console.error("⚠️ Promesse rejetée non gérée (le bot continue de tourner) :", reason);
 });
@@ -32,10 +31,6 @@ process.on("uncaughtException", (err) => {
 // =========================
 // DOSSIER DE DONNÉES
 // =========================
-// Sur un disque vierge (premier déploiement Render, ou après un redéploiement
-// puisque le disque est éphémère), ce dossier n'existe pas encore.
-// fs.writeFileSync peut créer un fichier manquant, mais pas un dossier manquant
-// → on le crée explicitement ici, une seule fois, avant tout le reste.
 const DATA_DIR = "./data";
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -43,23 +38,22 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // =========================
+// DOSSIER DE SESSION — chemin absolu pour survivre aux CWD changeants sur Render
+// =========================
+const SESSION_DIR = path.resolve("./session");
+if (!fs.existsSync(SESSION_DIR)) {
+    fs.mkdirSync(SESSION_DIR, { recursive: true });
+    console.log(`📁 Dossier session créé : ${SESSION_DIR}`);
+}
+
+// =========================
 // MODE DE CONNEXION : QR CODE ou PAIRING CODE
 // =========================
-// USE_QR_CODE=true  -> affiche un QR à scanner, servi en image sur une URL protégée
-// USE_QR_CODE=false (défaut) -> code de jumelage (pairing code) dans les logs, rien à scanner
 const USE_QR_CODE = (process.env.USE_QR_CODE || "false").toLowerCase() === "true";
 
-// Jeton secret pour protéger l'URL du QR : sans lui, impossible de voir le QR.
-// Sans ça, n'importe qui trouvant l'URL publique Render pourrait scanner le QR
-// à ta place et lier SON téléphone au bot au lieu du tien.
-// Fixe QR_SECRET dans les variables d'environnement Render pour un lien stable,
-// sinon un secret aléatoire est généré à chaque démarrage (visible dans les logs).
 const QR_SECRET = process.env.QR_SECRET || crypto.randomBytes(12).toString("hex");
-
-// URL publique du service (fournie automatiquement par Render pour un Web Service)
 const PUBLIC_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-// État en mémoire du QR actuellement affichable (régénéré à chaque nouveau QR émis par Baileys)
 let currentQrBuffer = null;
 let currentQrGeneratedAt = null;
 
@@ -69,8 +63,6 @@ let currentQrGeneratedAt = null;
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
 
-    // Page HTML avec l'image du QR + auto-refresh (le QR expire après ~60s
-    // et Baileys en régénère un nouveau tant qu'il n'est pas scanné)
     if (url.pathname === "/qr") {
         if (!USE_QR_CODE) {
             res.writeHead(404, { "Content-Type": "text/plain" });
@@ -97,7 +89,6 @@ const server = http.createServer((req, res) => {
 </html>`);
     }
 
-    // L'image PNG brute du QR (utilisée par la page ci-dessus)
     if (url.pathname === "/qr/image.png") {
         if (!USE_QR_CODE || url.searchParams.get("token") !== QR_SECRET || !currentQrBuffer) {
             res.writeHead(404, { "Content-Type": "text/plain" });
@@ -128,40 +119,73 @@ server.listen(PORT, "0.0.0.0", () => {
 // CONFIG ADMINS
 // =========================
 const ADMIN_NUMBERS = ["330665384876", "233275249576"]; // ← ajoute tes numéros ici (sans +)
-
-// Numéro sur lequel le bot lui-même se connecte (pairing code), sans le +
 const BOT_PHONE_NUMBER = process.env.PHONE_NUMBER || "22361872227";
-
-// Image de profil appliquée automatiquement au démarrage
 const BOT_PROFILE_PIC_URL = "https://files.catbox.moe/ys8fij.jpg";
 
 // =========================
 // CHARGEMENT DES PLUGINS
 // =========================
-// Chargés une seule fois au démarrage (au lieu de relire le dossier et de
-// recharger chaque fichier à chaque message reçu, ce qui était coûteux).
-// Triés par longueur de commande décroissante pour que les commandes plus
-// longues et spécifiques (ex: !stopfight) soient testées avant les plus
-// courtes qui pourraient matcher par erreur (ex: !stop).
 const PLUGINS = fs.readdirSync("./plugins")
     .filter(file => file.endsWith(".js"))
     .map(file => require(`./plugins/${file}`))
     .sort((a, b) => b.command.length - a.command.length);
 
 // =========================
+// COMPTEUR DE RECONNEXIONS
+// =========================
+// Évite la boucle infinie si WhatsApp ban le bot ou si la session est invalide.
+// Réinitialise à 0 à chaque connexion réussie.
+let reconnectCount = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_BASE_DELAY_MS = 3000;
+
+// =========================
 // BOT START
 // =========================
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState("./session");
+    // FIX 1 — récupère toujours la version Baileys la plus récente compatible WA
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`📦 Baileys version : ${version.join(".")} — dernière : ${isLatest}`);
+
+    const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
 
     const sock = makeWASocket({
-        auth: state,
+        version,
+        auth: {
+            creds: state.creds,
+            // FIX 2 — cache des clés de signal pour éviter les "bad mac" / décos répétés
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "silent" })),
+        },
         printQRInTerminal: false,
-        logger: pino({ level: "silent" })
+        logger: pino({ level: "silent" }),
+
+        // FIX 3 — keepalive toutes les 25s (Render coupe les idle connections après ~30s)
+        keepAliveIntervalMs: 25_000,
+
+        // FIX 4 — timeout de connexion généreux pour les démarrages lents sur Render
+        connectTimeoutMs: 60_000,
+
+        // FIX 5 — identifiant navigateur stable (WhatsApp le mémorise, moins de décos)
+        browser: ["EGO-BOT", "Chrome", "10.0"],
+
+        // FIX 6 — getMessage permet à Baileys de re-déchiffrer les messages en cas de retransmission
+        getMessage: async (key) => {
+            return { conversation: "" };
+        },
+
+        // FIX 7 — n'émet pas ses propres messages comme entrants (évite les boucles)
+        emitOwnEvents: false,
+
+        // FIX 8 — ignore les messages broadcast (status WA) qui causent des erreurs de déchiffrement
+        shouldIgnoreJid: (jid) => isJidBroadcast(jid),
+
+        // FIX 9 — pas de sync de l'historique complet (trop lourd, cause des timeouts sur Render)
+        syncFullHistory: false,
+        fireInitQueries: false,
     });
 
     // =========================
-    // PAIRING CODE (uniquement si le mode QR n'est pas activé)
+    // PAIRING CODE
     // =========================
     if (!USE_QR_CODE && !sock.authState.creds.registered) {
         setTimeout(async () => {
@@ -197,26 +221,57 @@ async function startBot() {
         }
 
         if (connection === "close") {
-            const shouldReconnect =
-                (lastDisconnect?.error instanceof Boom)
-                    ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
-                    : true;
-
-            console.log("Connexion fermée. Reconnexion :", shouldReconnect);
-            if (shouldReconnect) startBot();
-
-        } else if (connection === "open") {
-            console.log("✅ EGO BOT CONNECTÉ");
-            // Le QR n'est plus utile une fois connecté, on vide l'état en mémoire
             currentQrBuffer = null;
             currentQrGeneratedAt = null;
 
-            // Applique automatiquement la photo de profil du bot au démarrage
-            try {
-                await sock.updateProfilePicture(sock.user.id, { url: BOT_PROFILE_PIC_URL });
-                console.log("🖼️ Photo de profil du bot mise à jour.");
-            } catch (e) {
-                console.error("Erreur mise à jour photo de profil au démarrage :", e.message);
+            const statusCode = (lastDisconnect?.error instanceof Boom)
+                ? lastDisconnect.error.output.statusCode
+                : null;
+
+            const loggedOut = statusCode === DisconnectReason.loggedOut;
+
+            console.log(`Connexion fermée. Code : ${statusCode ?? "inconnu"}. Déconnecté définitivement : ${loggedOut}`);
+
+            if (loggedOut) {
+                // FIX 10 — supprime la session corrompue/expirée pour repartir proprement
+                console.log("🗑️ Session expirée — suppression du dossier session pour forcer une nouvelle auth.");
+                try {
+                    fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+                    fs.mkdirSync(SESSION_DIR, { recursive: true });
+                } catch (e) {
+                    console.error("Erreur suppression session:", e.message);
+                }
+                reconnectCount = 0;
+                startBot();
+                return;
+            }
+
+            // FIX 11 — backoff exponentiel + limite de tentatives pour éviter la boucle infinie
+            reconnectCount++;
+            if (reconnectCount > MAX_RECONNECT_ATTEMPTS) {
+                console.error(`❌ ${MAX_RECONNECT_ATTEMPTS} reconnexions échouées consécutives. Arrêt.`);
+                process.exit(1); // Render redémarre automatiquement le process
+                return;
+            }
+
+            const delay = Math.min(RECONNECT_BASE_DELAY_MS * Math.pow(2, reconnectCount - 1), 60_000);
+            console.log(`🔄 Reconnexion #${reconnectCount} dans ${delay / 1000}s...`);
+            setTimeout(() => startBot(), delay);
+
+        } else if (connection === "open") {
+            reconnectCount = 0; // reset du compteur à chaque connexion réussie
+            console.log("✅ EGO BOT CONNECTÉ");
+            currentQrBuffer = null;
+            currentQrGeneratedAt = null;
+
+            // FIX 12 — vérifie que sock.user est bien défini avant d'utiliser son .id
+            if (sock.user?.id) {
+                try {
+                    await sock.updateProfilePicture(sock.user.id, { url: BOT_PROFILE_PIC_URL });
+                    console.log("🖼️ Photo de profil du bot mise à jour.");
+                } catch (e) {
+                    console.error("Erreur mise à jour photo de profil au démarrage :", e.message);
+                }
             }
         }
     });
@@ -224,9 +279,15 @@ async function startBot() {
     // =========================
     // MESSAGES
     // =========================
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        // FIX 13 — ignore les notifications (type !== "notify") qui ne sont pas des vrais messages
+        if (type !== "notify") return;
+
         const m = messages[0];
         if (!m.message) return;
+
+        // FIX 14 — ignore les messages envoyés PAR le bot lui-même
+        if (m.key.fromMe) return;
 
         const msg = m.message;
 
@@ -240,14 +301,16 @@ async function startBot() {
         const cleanText = text.toLowerCase().trim();
         const from = m.key.remoteJid;
 
+        // FIX 15 — ignore les broadcasts WhatsApp (status, etc.)
+        if (!from || isJidBroadcast(from)) return;
+
         // =========================
         // RÉCUPÉRER SENDER
         // =========================
-        // participantPn / remoteJidAlt contient le vrai numéro même si participant est un JID @lid
         const senderJid = m.key.participantPn || m.key.participant || m.key.remoteJidAlt || m.key.remoteJid;
         const senderNumber = senderJid
             .split("@")[0]
-            .split(":")[0]   // retire le suffixe device (ex: 33665384876:14)
+            .split(":")[0]
             .replace("+", "")
             .trim();
         const isAdmin = ADMIN_NUMBERS.some(n => senderNumber === n || senderNumber.endsWith(n.slice(-9)));
@@ -257,7 +320,6 @@ async function startBot() {
         // =========================
         for (const cmd of PLUGINS) {
             if (cleanText.startsWith(cmd.command)) {
-                // Certaines commandes sont admin-only
                 if (cmd.adminOnly && !isAdmin) {
                     sock.sendMessage(from, {
                         text: `⛔ @${senderNumber} tu n'as pas la permission d'utiliser cette commande.`,
@@ -266,7 +328,7 @@ async function startBot() {
                     return;
                 }
                 cmd.handler(sock, m, cleanText, { senderJid, senderNumber, isAdmin });
-                break; // une seule commande par message
+                break;
             }
         }
 
@@ -293,10 +355,7 @@ async function startBot() {
 // =========================
 // VÉRIFICATION PÉRIODIQUE DES PRÊTS
 // =========================
-// Indépendante de la connexion WhatsApp (ne touche que les données Redis) :
-// placée au niveau module pour n'avoir qu'un seul intervalle actif, même si
-// startBot() est rappelé plusieurs fois suite à des reconnexions.
-const VERIF_INTERVAL_MS = 5 * 60 * 1000; // toutes les 5 minutes
+const VERIF_INTERVAL_MS = 5 * 60 * 1000;
 setInterval(async () => {
     try {
         const nb = await verifierEcheancesBancaires();
