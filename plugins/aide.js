@@ -530,6 +530,70 @@ const AIDE = {
         exemple: "!ouvrirgroupe",
         category: "groupe"
     },
+
+    // ============================================================
+    //  ✨ NOUVELLES COMMANDES E.V.O
+    // ============================================================
+
+    // --- E.V.O / Général ---
+    about: { usage: "!about", description: "E.V.O se présente : qui il est, son créateur (ego), et ce qu'il sait faire.", exemple: "!about", category: "general" },
+    evo: { usage: "!evo <message>", description: "Discute avec E.V.O comme avec une IA. Il répond de façon différente à chaque fois, en fonction de ton message.", exemple: "!evo bonjour, qui es-tu ?", category: "general" },
+    botinfo: { usage: "!botinfo", description: "Affiche les infos techniques de E.V.O : nombre de commandes, base de données, moteur.", exemple: "!botinfo", category: "general" },
+    uptime: { usage: "!uptime", description: "Depuis combien de temps E.V.O est en ligne, et sa consommation mémoire.", exemple: "!uptime", category: "general" },
+    heure: { usage: "!heure", description: "Affiche la date et l'heure actuelles (fuseau Europe/Paris).", exemple: "!heure", category: "general" },
+    calc: { usage: "!calc <expression>", description: "Petite calculatrice. Gère + - * / ( ) %.", exemple: "!calc (12 + 8) * 3", category: "general" },
+    avatar: { usage: "!avatar [@membre]", description: "Récupère et envoie la photo de profil d'un membre (ou la tienne).", exemple: "!avatar @33612345678", category: "general" },
+
+    // --- Nouveaux jeux Casino ---
+    crash: { usage: "!crash <pseudo> <mise> <objectif>", description: "La fusée décolle et le multiplicateur monte. Tu gagnes si elle atteint ton objectif avant d'exploser.", exemple: "!crash paul 5000 2.0", category: "casino" },
+    mines: { usage: "!mines <pseudo> <mise> [nbMines 1-4]", description: "Avance sur un champ de 5 cases. Chaque case sûre augmente ton gain, une mine te fait tout perdre.", exemple: "!mines paul 5000 2", category: "casino" },
+    penalty: { usage: "!penalty <gauche|centre|droite> <pseudo> <mise>", description: "Tire un penalty. Si le gardien plonge du mauvais côté, tu marques (x2).", exemple: "!penalty gauche paul 3000", category: "casino" },
+    chifoumi: { usage: "!chifoumi <pierre|feuille|ciseaux> <pseudo> <mise>", description: "Pierre-feuille-ciseaux contre E.V.O. Victoire x1.9, égalité remboursée.", exemple: "!chifoumi pierre paul 2000", category: "casino" },
+    course: { usage: "!course <1-4> <pseudo> <mise>", description: "Parie sur l'un des 4 chevaux. Bon cheval = x3.5.", exemple: "!course 2 paul 4000", category: "casino" },
+    fleche: { usage: "!fleche <pseudo> <mise>", description: "Lance une fléchette. Selon la zone touchée, jusqu'à x5 (bullseye).", exemple: "!fleche paul 3000", category: "casino" },
+    grattage: { usage: "!grattage <pseudo> <mise>", description: "Ticket à gratter : trois symboles identiques = jackpot (jusqu'à x30).", exemple: "!grattage paul 2000", category: "casino" },
+    plinko: { usage: "!plinko <pseudo> <mise>", description: "Lâche la bille : elle rebondit et tombe dans une case. Bords = gros gains (x5).", exemple: "!plinko paul 3000", category: "casino" },
+    wheel: { usage: "!wheel <pseudo> <mise>", description: "Roue de la fortune, du 'perdu' au JACKPOT x10.", exemple: "!wheel paul 5000", category: "casino" },
+    keno: { usage: "!keno <pseudo> <mise> <n1> [n2] [n3]", description: "Choisis 1 à 3 numéros (1-10). 5 sont tirés. 1 bon=x1, 2=x3, 3=x12.", exemple: "!keno paul 2000 3 7 9", category: "casino" },
+    bataille: { usage: "!bataille <pseudo> <mise>", description: "Une carte pour toi, une pour E.V.O. La plus haute gagne (x1.9), égalité remboursée.", exemple: "!bataille paul 3000", category: "casino" },
+    echelle: { usage: "!echelle <pseudo> <mise> <niveaux 1-6>", description: "Grimpe l'échelle, 55% de réussite par barreau. Atteins le sommet pour x1.8 par barreau.", exemple: "!echelle paul 3000 4", category: "casino" },
+
+    // --- Économie / Métiers RP ---
+    travailler: { usage: "!travailler <pseudo>", description: "Bosse un petit job pour gagner du Ryo. Cooldown 30 min.", exemple: "!travailler paul", category: "economie" },
+    salaire: { usage: "!salaire <pseudo>", description: "Touche ton salaire fixe. Cooldown 12h.", exemple: "!salaire paul", category: "economie" },
+    aumone: { usage: "!aumone <pseudo>", description: "Fais la manche pour quelques pièces. Cooldown 10 min.", exemple: "!aumone paul", category: "economie" },
+    peche: { usage: "!peche <pseudo>", description: "Va pêcher, la prise a une valeur variable. Cooldown 15 min.", exemple: "!peche paul", category: "economie" },
+    miner: { usage: "!miner <pseudo>", description: "Creuse la mine (charbon → diamant). Cooldown 20 min.", exemple: "!miner paul", category: "economie" },
+    chasser: { usage: "!chasser <pseudo>", description: "Pars chasser du gibier. 75% de réussite. Cooldown 20 min.", exemple: "!chasser paul", category: "economie" },
+    quete: { usage: "!quete <pseudo>", description: "Accomplis une quête RP. 80% de réussite. Cooldown 1h.", exemple: "!quete paul", category: "economie" },
+    crime: { usage: "!crime <pseudo>", description: "Tente un petit délit : 60% de gagner, sinon amende. Cooldown 45 min.", exemple: "!crime paul", category: "economie" },
+    braquage: { usage: "!braquage <pseudo>", description: "Gros coup à haut risque : 40% de réussite, gros butin ou grosse perte. Cooldown 2h.", exemple: "!braquage paul", category: "economie" },
+    casse: { usage: "!casse <pseudo>", description: "Perce un coffre : 1 chance sur 5, magot énorme si tu tombes juste. Cooldown 1h30.", exemple: "!casse paul", category: "economie" },
+    contrebande: { usage: "!contrebande <pseudo>", description: "Fais passer de la marchandise : 55% de réussite. Cooldown 1h.", exemple: "!contrebande paul", category: "economie" },
+    entreprise: { usage: "!entreprise <pseudo>", description: "Encaisse les revenus passifs de ton business. Cooldown 3h.", exemple: "!entreprise paul", category: "economie" },
+    investir: { usage: "!investir <pseudo> <montant>", description: "Place ton Ryo sur le marché : ça peut monter (jusqu'à +140%) ou chuter.", exemple: "!investir paul 10000", category: "economie" },
+    voler: { usage: "!voler <tonPseudo> <cible>", description: "Tente de voler du Ryo à un autre joueur (50% de réussite, sinon amende). Cooldown 1h.", exemple: "!voler paul marie", category: "economie" },
+    don: { usage: "!don <tonPseudo> <destinataire> <montant>", description: "Offre du Ryo de ta bourse à un autre joueur, sans frais ni code bancaire.", exemple: "!don paul marie 5000", category: "economie" },
+
+    // --- Fun / Social ---
+    "8ball": { usage: "!8ball <question>", description: "La boule magique répond à ta question fermée, différemment à chaque fois.", exemple: "!8ball je vais gagner ce soir ?", category: "fun" },
+    roll: { usage: "!roll [max]", description: "Tire un nombre aléatoire entre 1 et max (100 par défaut).", exemple: "!roll 50", category: "fun" },
+    pileouface: { usage: "!pileouface", description: "Lance une pièce : pile ou face.", exemple: "!pileouface", category: "fun" },
+    ship: { usage: "!ship <nom1> <nom2>", description: "Calcule le pourcentage de compatibilité amoureuse entre deux noms.", exemple: "!ship paul marie", category: "fun" },
+    niveau: { usage: "!niveau <pseudo> <critère>", description: "Jauge fun d'un joueur sur un critère au choix (chance, coolitude...).", exemple: "!niveau paul chance", category: "fun" },
+    citation: { usage: "!citation", description: "Affiche une citation inspirante au hasard.", exemple: "!citation", category: "fun" },
+    blague: { usage: "!blague", description: "Raconte une blague au hasard.", exemple: "!blague", category: "fun" },
+    motivation: { usage: "!motivation", description: "Une phrase de motivation pour te booster.", exemple: "!motivation", category: "fun" },
+    compliment: { usage: "!compliment [@membre]", description: "Envoie un compliment sincère à quelqu'un (ou à toi-même).", exemple: "!compliment @33612345678", category: "fun" },
+    clash: { usage: "!clash [@membre]", description: "Petit clash pour rire (bon esprit) envoyé à quelqu'un.", exemple: "!clash @33612345678", category: "fun" },
+    choix: { usage: "!choix <opt1> | <opt2> | ...", description: "E.V.O choisit une option à ta place parmi celles proposées.", exemple: "!choix pizza | sushi | tacos", category: "fun" },
+    sondage: { usage: "!sondage <question> | <opt1> | <opt2> [| ...]", description: "Crée un sondage numéroté que le groupe peut voter en réagissant.", exemple: "!sondage On mange quoi ? | Pizza | Sushi", category: "fun" },
+    quiz: { usage: "!quiz", description: "Pose une question de culture générale. Réponds avec !rep. 90 secondes.", exemple: "!quiz", category: "fun" },
+    rep: { usage: "!rep <réponse>", description: "Répond à la question de quiz en cours dans le chat.", exemple: "!rep tokyo", category: "fun" },
+    defi: { usage: "!defi", description: "Reçois un défi rigolo à réaliser dans le groupe.", exemple: "!defi", category: "fun" },
+    verite: { usage: "!verite", description: "Reçois une question 'vérité' à laquelle répondre honnêtement.", exemple: "!verite", category: "fun" },
+    horoscope: { usage: "!horoscope <signe>", description: "Ton horoscope du jour (amour, argent, humeur) selon E.V.O.", exemple: "!horoscope lion", category: "fun" },
+    tagadmins: { usage: "!tagadmins [message]", description: "Mentionne tous les admins du groupe (utile pour les alerter).", exemple: "!tagadmins besoin d'aide ici", category: "groupe" },
 };
 
 // Image associée à chaque catégorie, affichée avec la réponse de !aide <commande>.
@@ -540,6 +604,8 @@ const CATEGORY_IMAGES = {
     cartes: "https://files.catbox.moe/jchbi8.jpg",
     casino: "https://files.catbox.moe/04bcjy.jpg", // réutilise l'image de !casino
     banque: "https://files.catbox.moe/pq45uy.jpg",
+    economie: "https://files.catbox.moe/pq45uy.jpg",
+    fun: "https://files.catbox.moe/jchbi8.jpg",
     // duel, chrono, joueurs, admin : pas d'image fournie pour l'instant
 };
 

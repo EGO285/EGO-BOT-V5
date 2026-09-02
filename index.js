@@ -17,6 +17,8 @@ const http = require("http");
 const crypto = require("crypto");
 const QRCode = require("qrcode");
 const { verifierEcheancesBancaires } = require("./utils/users");
+const { suggestCommand } = require("./utils/suggest");
+const { evoUnknownCommand } = require("./utils/evoVoice");
 
 // =========================
 // FILET DE SÉCURITÉ ANTI-CRASH
@@ -80,9 +82,9 @@ const server = http.createServer((req, res) => {
         return res.end(`
 <!DOCTYPE html>
 <html>
-<head><meta http-equiv="refresh" content="15"><title>EGO BOT — QR Code</title></head>
+<head><meta http-equiv="refresh" content="15"><title>E.V.O — QR Code</title></head>
 <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#111;font-family:sans-serif;color:#fff;">
-    <h2>📱 Scanne ce QR avec WhatsApp</h2>
+    <h2>📱 E.V.O — Scanne ce QR avec WhatsApp</h2>
     <img src="/qr/image.png?token=${QR_SECRET}" alt="QR Code WhatsApp" style="width:320px;height:320px;background:#fff;padding:16px;border-radius:12px;" />
     <p>Page actualisée automatiquement toutes les 15s (le QR expire après ~60s).</p>
 </body>
@@ -99,7 +101,7 @@ const server = http.createServer((req, res) => {
     }
 
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end("EGO BOT is running\n");
+    res.end("E.V.O (EGO VIRTUAL OPERATOR) is running\n");
 });
 
 const PORT = process.env.PORT || 3000;
@@ -107,7 +109,7 @@ server.listen(PORT, "0.0.0.0", () => {
     console.log(`Serveur HTTP en écoute sur le port ${PORT}`);
     if (USE_QR_CODE) {
         console.log("====================================");
-        console.log("      📱 EGO BOT — MODE QR CODE");
+        console.log("      📱 E.V.O — EGO VIRTUAL OPERATOR — MODE QR CODE");
         console.log("====================================");
         console.log(`Ouvre cette URL pour scanner : ${PUBLIC_URL}/qr?token=${QR_SECRET}`);
         console.log("⚠️ Garde ce lien secret, il permet de lier un appareil au bot.");
@@ -129,6 +131,9 @@ const PLUGINS = fs.readdirSync("./plugins")
     .filter(file => file.endsWith(".js"))
     .map(file => require(`./plugins/${file}`))
     .sort((a, b) => b.command.length - a.command.length);
+
+// Liste plate de toutes les commandes connues (pour la suggestion anti-faute).
+const ALL_COMMANDS = PLUGINS.map(p => p.command);
 
 // =========================
 // COMPTEUR DE RECONNEXIONS
@@ -166,7 +171,7 @@ async function startBot() {
         connectTimeoutMs: 60_000,
 
         // FIX 5 — identifiant navigateur stable (WhatsApp le mémorise, moins de décos)
-        browser: ["EGO-BOT", "Chrome", "10.0"],
+        browser: ["EVO-BOT", "Chrome", "10.0"],
 
         // FIX 6 — getMessage permet à Baileys de re-déchiffrer les messages en cas de retransmission
         getMessage: async (key) => {
@@ -192,7 +197,7 @@ async function startBot() {
             try {
                 const code = await sock.requestPairingCode(BOT_PHONE_NUMBER);
                 console.log("====================================");
-                console.log("      🎴 EGO BOT PAIRING CODE");
+                console.log("      🎴 E.V.O — PAIRING CODE");
                 console.log("====================================");
                 console.log(code);
                 console.log("====================================");
@@ -260,7 +265,7 @@ async function startBot() {
 
         } else if (connection === "open") {
             reconnectCount = 0; // reset du compteur à chaque connexion réussie
-            console.log("✅ EGO BOT CONNECTÉ");
+            console.log("✅ E.V.O (EGO VIRTUAL OPERATOR) CONNECTÉ");
             currentQrBuffer = null;
             currentQrGeneratedAt = null;
 
@@ -318,8 +323,10 @@ async function startBot() {
         // =========================
         // PLUGINS SYSTEM
         // =========================
+        let matched = false;
         for (const cmd of PLUGINS) {
             if (cleanText.startsWith(cmd.command)) {
+                matched = true;
                 if (cmd.adminOnly && !isAdmin) {
                     sock.sendMessage(from, {
                         text: `⛔ @${senderNumber} tu n'as pas la permission d'utiliser cette commande.`,
@@ -330,6 +337,22 @@ async function startBot() {
                 cmd.handler(sock, m, cleanText, { senderJid, senderNumber, isAdmin });
                 break;
             }
+        }
+
+        // =========================
+        // SUGGESTION ANTI-FAUTE (façon IA)
+        // =========================
+        // Si le message commence par "!" (donc l'utilisateur VOULAIT une commande)
+        // mais qu'aucune commande ne matche, E.V.O propose la plus proche
+        // ("ne vouliez-vous pas écrire ... à tout hasard ?").
+        if (!matched && cleanText.startsWith("!")) {
+            const premierMot = cleanText.split(/\s+/)[0];
+            const suggestion = suggestCommand(premierMot, ALL_COMMANDS);
+            await sock.sendMessage(from, {
+                text: evoUnknownCommand(premierMot, suggestion),
+                mentions: [senderJid]
+            });
+            return;
         }
 
         // =========================

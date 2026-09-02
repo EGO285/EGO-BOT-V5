@@ -15,7 +15,9 @@ module.exports = {
 *📜 MENU PRINCIPAL*
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 _▲ En ligne👤:_ @${senderNumber}
+_▲ Assistant : E.V.O (EGO VIRTUAL OPERATOR)_
 _▲ Tape !aide <commande> pour le détail_
+_▲ Nouveau : !about · !evo_
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ⟡ *COMBAT* ⚔️
 ⚔️ !combat
@@ -113,6 +115,66 @@ _▲ Tape !aide <commande> pour le détail_
 📝 !setgroupdesc <description>
 🔒 !fermergroupe
 🔓 !ouvrirgroupe
+
+⟡ *E.V.O* 🤖
+🤖 !about
+💬 !evo <message>
+ℹ️ !botinfo
+🟢 !uptime
+🕒 !heure
+🧮 !calc <expr>
+🖼️ !avatar [@membre]
+
+⟡ *NOUVEAUX JEUX* 🎰
+🚀 !crash <pseudo> <mise> <objectif>
+💣 !mines <pseudo> <mise> [nbMines]
+⚽ !penalty <g|c|d> <pseudo> <mise>
+✊ !chifoumi <coup> <pseudo> <mise>
+🏇 !course <1-4> <pseudo> <mise>
+🎯 !fleche <pseudo> <mise>
+🎫 !grattage <pseudo> <mise>
+🔴 !plinko <pseudo> <mise>
+🎡 !wheel <pseudo> <mise>
+🔢 !keno <pseudo> <mise> <n...>
+🃏 !bataille <pseudo> <mise>
+🪜 !echelle <pseudo> <mise> <niv>
+
+⟡ *ÉCONOMIE / MÉTIERS* 💼
+💼 !travailler <pseudo>
+💵 !salaire <pseudo>
+🙏 !aumone <pseudo>
+🎣 !peche <pseudo>
+⛏️ !miner <pseudo>
+🏹 !chasser <pseudo>
+📜 !quete <pseudo>
+🔪 !crime <pseudo>
+🏦 !braquage <pseudo>
+🔐 !casse <pseudo>
+📦 !contrebande <pseudo>
+🏭 !entreprise <pseudo>
+📈 !investir <pseudo> <montant>
+🕵️ !voler <toi> <cible>
+🎁 !don <toi> <dest> <montant>
+
+⟡ *FUN / SOCIAL* 🎉
+🎱 !8ball <question>
+🎲 !roll [max]
+🪙 !pileouface
+💘 !ship <a> <b>
+📊 !niveau <pseudo> <critère>
+📖 !citation
+😂 !blague
+🔥 !motivation
+💐 !compliment [@x]
+😏 !clash [@x]
+🤔 !choix a | b | c
+🗳️ !sondage q | o1 | o2
+🧠 !quiz  ·  ✍️ !rep <réponse>
+🎯 !defi  ·  💬 !verite
+🔮 !horoscope <signe>
+📣 !tagadmins [message]
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+_🤖 E.V.O — EGO VIRTUAL OPERATOR · créé par ego_
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 *_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
 
