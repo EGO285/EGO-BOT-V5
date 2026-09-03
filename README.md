@@ -32,6 +32,8 @@ Copie `.env.example` en `.env` et remplis **tes propres** valeurs :
 | `PORT` | Port du serveur HTTP (healthcheck + page QR). |
 | `HF_TOKEN` | (optionnel) Jeton **Hugging Face** gratuit pour rendre `!evo` réellement intelligent. Sans lui, `!evo` marche en mode local. |
 | `HF_MODEL` | (optionnel) Modèle Hugging Face utilisé par `!evo`. |
+| `EVO_MAX_TOURS` | (optionnel) Nb d'échanges gardés en mémoire par `!evo` (défaut 12). |
+| `EVO_HIST_TTL` | (optionnel) Durée de vie de la mémoire `!evo`, en jours (défaut 30). |
 
 ### 🔗 Brancher TA base Upstash
 
@@ -73,9 +75,17 @@ Hugging Face (rien n'est chargé en local, donc ça marche même sur une petite 
 2. Mets-le dans `HF_TOKEN` (dans `.env` ou dans les variables Render).
 3. (optionnel) Choisis un modèle via `HF_MODEL`.
 
-E.V.O garde un **court historique** de la conversation par chat (contexte), se présente
-comme créé par *ego*, et répond en français de façon concise et variée.
-`!evo reset` efface la mémoire de la conversation en cours.
+**🧠 Mémoire persistante & par personne** : E.V.O garde l'historique **dans ton Upstash
+Redis**, avec une clé **par personne** (`evo:hist:<chat>|<numéro>`). Dans un groupe, chaque
+membre a donc son propre fil de conversation avec E.V.O, sans mélange ; en privé c'est
+naturellement ta conversation à toi. Il se souvient donc de ce qu'on lui a dit **même
+après un redémarrage ou un redéploiement** du bot. Réglable via `EVO_MAX_TOURS` (nombre
+d'échanges gardés) et `EVO_HIST_TTL` (durée de vie en jours). `!evo reset` efface la
+mémoire de la conversation en cours.
+
+Il se présente comme créé par *ego* et répond en français, concis et varié.
+
+> Si Upstash n'est pas configuré, la mémoire retombe en RAM (perdue au reboot).
 
 > Sans `HF_TOKEN`, ou si l'API Hugging Face est indisponible, `!evo` **retombe
 > automatiquement** sur des réponses locales variées : la commande ne casse jamais.
