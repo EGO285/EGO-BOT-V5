@@ -537,7 +537,9 @@ const AIDE = {
 
     // --- E.V.O / Général ---
     about: { usage: "!about", description: "E.V.O se présente : qui il est, son créateur (ego), et ce qu'il sait faire.", exemple: "!about", category: "general" },
-    evo: { usage: "!evo <message>", description: "Discute avec E.V.O comme avec une IA. Il répond de façon différente à chaque fois, en fonction de ton message.", exemple: "!evo bonjour, qui es-tu ?", category: "general" },
+    evo: { usage: "!evo <message> | (avec une image)", description: "Discute avec E.V.O (vraie IA). Il a une mémoire par personne, connaît Shinobi Storm, peut CHERCHER sur internet, LIRE un lien, et ANALYSER une image que tu lui envoies ou que tu cites. !evo reset efface ta conversation.", exemple: "!evo qui a créé Shinobi Storm ?", category: "general" },
+    arbitre: { usage: "!arbitre <ton action RP> | (avec une carte en image)", description: "Arbitre IA des duels Shinobi Storm : applique les règles officielles, garde la mémoire du combat (positions, blessures, techniques) et rend un verdict motivé. Neutre et impartial. !arbitre reset pour repartir à zéro.", exemple: "!arbitre je lance un kunai vers son épaule droite à 8 mètres", category: "general" },
+    web: { usage: "!web <recherche>", description: "Force une recherche internet et te répond avec les infos trouvées (nécessite une clé TAVILY_API_KEY).", exemple: "!web dernières nouvelles tech", category: "general" },
     botinfo: { usage: "!botinfo", description: "Affiche les infos techniques de E.V.O : nombre de commandes, base de données, moteur.", exemple: "!botinfo", category: "general" },
     uptime: { usage: "!uptime", description: "Depuis combien de temps E.V.O est en ligne, et sa consommation mémoire.", exemple: "!uptime", category: "general" },
     heure: { usage: "!heure", description: "Affiche la date et l'heure actuelles (fuseau Europe/Paris).", exemple: "!heure", category: "general" },

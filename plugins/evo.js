@@ -1,4 +1,6 @@
 const { askEVO } = require("../utils/evoAI");
+const { getImageDataUrl, hasImage } = require("../utils/evoMedia");
+const { buildWebContext } = require("../utils/evoWeb");
 
 module.exports = {
     command: "!evo",
@@ -6,24 +8,45 @@ module.exports = {
         const from = m.key.remoteJid;
         const message = text.replace("!evo", "").trim();
 
-        // Mémoire PAR PERSONNE : la clé combine le chat et l'expéditeur.
-        // -> dans un groupe, chacun a son propre historique avec E.V.O ;
-        //    en privé, c'est naturellement la bonne personne.
+        // Mémoire PAR PERSONNE (chat + expéditeur).
         const scopeId = `${from}|${senderNumber}`;
 
-        if (!message) {
+        const imagePresente = hasImage(m);
+
+        if (!message && !imagePresente) {
             return sock.sendMessage(from, {
-                text: "💬 Parle-moi ! *!evo <ton message>*\n_Ex : !evo explique-moi les règles du blackjack_\n_(tape !evo reset pour effacer TA conversation avec moi)_",
+                text: "💬 Parle-moi ! *!evo <ton message>*\n🖼️ Envoie-moi une image (ou réponds à une image) avec *!evo <question>* et je l'analyse.\n🌐 Je peux chercher sur internet et lire des liens.\n_(tape !evo reset pour effacer TA conversation)_",
                 mentions: [senderJid],
             });
         }
 
-        // Petit indicateur "en train d'écrire" pour le côté vivant.
         try { await sock.sendPresenceUpdate("composing", from); } catch (e) {}
 
-        const { text: reponse } = await askEVO(scopeId, message);
+        const opts = {};
 
-        await sock.sendMessage(from, { text: reponse, mentions: [senderJid] });
+        // 1) Image (vision)
+        if (imagePresente) {
+            const img = await getImageDataUrl(sock, m);
+            if (img?.tooLarge) {
+                return sock.sendMessage(from, { text: "🖼️ L'image est trop lourde pour que je l'analyse (max ~4 Mo). Renvoie-la en qualité réduite.", mentions: [senderJid] });
+            }
+            if (img?.dataUrl) opts.imageDataUrl = img.dataUrl;
+        }
+
+        // 2) Internet (liens + recherche) — seulement en mode texte
+        let sources = [];
+        if (!opts.imageDataUrl) {
+            try {
+                const web = await buildWebContext(message);
+                if (web.contexte) opts.webContext = web.contexte;
+                sources = web.sources || [];
+            } catch (e) {}
+        }
+
+        const { text: reponse } = await askEVO(scopeId, message, opts);
+
+        const suffixe = sources.length ? `\n\n🔗 ${sources.slice(0, 2).join("\n🔗 ")}` : "";
+        await sock.sendMessage(from, { text: reponse + suffixe, mentions: [senderJid] });
         try { await sock.sendPresenceUpdate("paused", from); } catch (e) {}
     }
 };

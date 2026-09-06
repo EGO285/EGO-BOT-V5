@@ -118,7 +118,9 @@ _▲ Nouveau : !about · !evo_
 
 ⟡ *E.V.O* 🤖
 🤖 !about
-💬 !evo <message>
+💬 !evo <message> (IA, images, web)
+⚖️ !arbitre <action> (duels RP)
+🌐 !web <recherche>
 ℹ️ !botinfo
 🟢 !uptime
 🕒 !heure

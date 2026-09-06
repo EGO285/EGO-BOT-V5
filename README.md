@@ -34,6 +34,8 @@ Copie `.env.example` en `.env` et remplis **tes propres** valeurs :
 | `HF_MODEL` | (optionnel) Modèle Hugging Face utilisé par `!evo`. |
 | `EVO_MAX_TOURS` | (optionnel) Nb d'échanges gardés en mémoire par `!evo` (défaut 12). |
 | `EVO_HIST_TTL` | (optionnel) Durée de vie de la mémoire `!evo`, en jours (défaut 30). |
+| `HF_VISION_MODEL` | (optionnel) Modèle **vision** pour analyser les images (défaut Llama-3.2-11B-Vision). |
+| `TAVILY_API_KEY` | (optionnel) Clé gratuite [Tavily](https://app.tavily.com) pour la **recherche internet**. Sans elle, E.V.O peut lire un lien mais ne cherche pas sur le web. |
 
 ### 🔗 Brancher TA base Upstash
 
@@ -90,6 +92,17 @@ Il se présente comme créé par *ego* et répond en français, concis et varié
 > Sans `HF_TOKEN`, ou si l'API Hugging Face est indisponible, `!evo` **retombe
 > automatiquement** sur des réponses locales variées : la commande ne casse jamais.
 
+## 🌐 Internet, 🖼️ vision & ⚖️ arbitrage Shinobi Storm
+
+**Accès internet** — `!evo` peut chercher sur le web et lire des liens :
+- Recherche automatique quand la question a besoin d'infos fraîches (actu, prix, « qui a gagné… 2025 ? », météo…). Nécessite `TAVILY_API_KEY`.
+- Lecture d'un lien : `!evo résume https://…` (aucune clé requise).
+- `!web <recherche>` force une recherche web explicite.
+
+**Vision (images)** — envoie une image **avec la légende** `!evo <question>`, ou **réponds** à une image avec `!evo <question>` : E.V.O l'analyse (nécessite `HF_TOKEN` + un modèle vision). Idem pour `!arbitre` avec une carte de personnage.
+
+**Arbitre RP** — `!arbitre <ton action>` : E.V.O arbitre les duels selon les **règles officielles de Shinobi Storm** (créé par EGO WINTERSON, 11/09/2024). Il est neutre, applique la logique distance/vitesse/temps/trajectoire, refuse l'auto-hit et le métagaming, **garde la mémoire du combat** (positions, blessures, techniques, projectiles) et rend un **verdict motivé**. `!arbitre reset` réinitialise le duel. Les règles et la base de connaissances sont implantées dans E.V.O, qui est donc incollable sur Shinobi Storm (y compris via `!evo`).
+
 ## 👑 Admins
 
 Ajoute tes numéros (sans `+`) dans `ADMIN_NUMBERS` en haut de `index.js`.
@@ -113,7 +126,7 @@ Tape **`!menu`** pour tout voir, **`!aide <commande>`** pour le détail d'une co
 `!investir` · `!voler` · `!don`
 
 **Fun / social** — `!8ball` · `!roll` · `!pileouface` · `!ship` · `!niveau` · `!citation` ·
-`!blague` · `!motivation` · `!compliment` · `!clash` · `!choix` · `!sondage` · `!quiz` +
+`!blague` · `!motivation` · `!compliment` · `!clash` (300+ variantes) · `!choix` · `!sondage` · `!quiz` +
 `!rep` · `!defi` · `!verite` · `!horoscope` · `!tagadmins`
 
 Toutes les commandes qui touchent à l'argent utilisent la **fiche joueur Upstash** (crée
@@ -129,7 +142,10 @@ une fiche avec `!new <pseudo>`), et les métiers ont un **cooldown** (temps d'at
   automatiquement au démarrage.
 - `utils/users.js` — couche de données Upstash (fiches, banque, casino).
 - `utils/evoVoice.js` — personnalité locale de E.V.O : pools de phrases variées, repli hors-ligne de `!evo`, message « vouliez-vous dire… ? ».
-- `utils/evoAI.js` — cerveau IA de `!evo` : appel à l'API Hugging Face + historique de conversation + repli automatique sur evoVoice.
+- `utils/evoAI.js` — cerveau IA : `!evo` (chat, vision, web, lore) et `!arbitre` (arbitrage), mémoire persistante Upstash + repli.
+- `utils/evoWeb.js` — accès internet : recherche web (Tavily) + lecture de liens.
+- `utils/evoMedia.js` — récupère/encode les images WhatsApp pour la vision.
+- `utils/shinobiLore.js` — base de connaissances + règles officielles de Shinobi Storm, injectées dans E.V.O et l'arbitre.
 - `utils/evoGame.js` — helpers des nouveaux jeux/métiers (cooldowns, hasard).
 - `utils/suggest.js` — distance de Levenshtein + suggestion de la commande la plus proche.
 - `utils/quizState.js` — état partagé du quiz entre `!quiz` et `!rep`.
