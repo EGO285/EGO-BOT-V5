@@ -16,13 +16,14 @@ function bar(val, max, taille = 10) {
 
 function hud(oc) {
     const l = loc(oc.lieu);
+    const nomLieu = oc.lieuNom || (l ? l.nom : oc.lieu);
     const alertes = survival.etat(oc);
     const lignes = [
         "╔══════════════════════╗",
         "   🍥 SHINOBI STORM",
         "      MODE HISTOIRE",
         "╚══════════════════════╝",
-        `📍 ${l ? l.nom : oc.lieu}   🕐 ${world.heureTxt(oc)}  ${world.meteoEmoji(oc.timeline.meteo)}`,
+        `📍 ${nomLieu}   🕐 ${world.heureTxt(oc)}  ${world.meteoEmoji(oc.timeline.meteo)}`,
         `👤 ${oc.identite.prenom} ${oc.identite.nom}  ·  🥷 ${rankByKey(oc.identite.rang).nom}  ·  Nv.${oc.niveau}`,
         `❤️ PV      ${bar(oc.vitals.pv, oc.stats.pvMax)} ${oc.vitals.pv}/${oc.stats.pvMax}`,
         `🔵 Chakra  ${bar(oc.vitals.chakra, oc.stats.chakraMax)} ${oc.vitals.chakra}/${oc.stats.chakraMax}`,

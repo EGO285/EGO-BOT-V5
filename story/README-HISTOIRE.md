@@ -21,7 +21,7 @@ résultat en récit — elle ne décide jamais d'un chiffre. Le jeu **fonctionne
 
 ## Sous-commandes
 - **Personnage** : `fiche` · `stats <stat>` (dépenser un point) · `jutsu` · `sac` · `objet <obj>`
-- **Monde** : `carte` · `voyager <lieu>` · `explorer`
+- **Monde** : `carte` · `voyager <lieu>` · `explorer` · `aventurer` _(open-world généré par IA)_
 - **Missions** : `mission` · `mission <n>` · `mission combattre` · `mission finir` · `abandonner`
 - **Progression** : `entrainer <type>` · `apprendre <tech>` · `rang` (passer un grade)
 - **Survie** : `manger` · `boire` · `dormir [h]`
@@ -39,6 +39,15 @@ endurance/boss multi-phases) · missions (D→S, combat & non-combat) · explora
 rencontres aléatoires contrôlées · temps/calendrier/météo/jour-nuit · PNJ + relations + mémoire +
 réputations · mentors (apprentissage sous condition de relation) · KO/mort selon difficulté ·
 sauvegarde auto Upstash + logs · narration IA optionnelle avec repli.
+
+## 🌍 Open-world procédural (généré par IA)
+`!histoire aventurer` fait partir ton ninja **vers l'inconnu** : l'IA (Hugging Face) **génère un
+nouveau lieu** (nom, description, ambiance, type), le moteur **valide et borne** les valeurs
+mécaniques (danger, services), puis le lieu est **sauvegardé dans ta carte personnelle** (Upstash,
+clé `story:map:<pseudo>`). Tu peux y **revenir plus tard** : le monde que tu as exploré persiste
+d'une session à l'autre, exactement tel que découvert. Sans IA disponible, un générateur local
+prend le relais (le monde s'étend quand même). Les lieux générés apparaissent dans `!histoire carte`
+(marqués ✨) et sont reliés bidirectionnellement au reste du monde.
 
 ## Multijoueur
 Chaque joueur a **sa propre sauvegarde** liée à sa fiche : plusieurs personnes jouent en parallèle

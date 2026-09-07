@@ -48,7 +48,7 @@ function createOC(pseudo, fiche, opts = {}) {
         techniques: STARTER_JUTSU.map(id => ({ id, maitrise: 20 })),
         inventaire: [{ id: "kunai", qty: 5 }, { id: "shuriken", qty: 5 }, { id: "boulette_riz", qty: 2 }],
         ryo: 500,
-        lieu: START_LOCATION,
+        lieu: START_LOCATION, lieuNom: "Konoha (village)", lieuServices: ["magasin_ninja","armurerie","herboristerie","restaurant","hopital","repos"],
         quete: null, quetesFinies: [],
         relations: {}, npcMemoire: {},
         reputation: { konoha: 0, clan: 0, militaire: 0, criminel: 0, international: 0 },

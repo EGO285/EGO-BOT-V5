@@ -12,6 +12,7 @@ const inventory = require("./engine/inventory");
 const economy = require("./engine/economy");
 const missions = require("./engine/missions");
 const exploration = require("./engine/exploration");
+const worldmap = require("./engine/worldmap");
 const training = require("./engine/training");
 const relations = require("./engine/relations");
 const world = require("./engine/world");
@@ -36,6 +37,7 @@ const KNOWN_SUBS = new Set([
     "reputation", "réputation", "apprendre", "sauvegarde", "save", "abandonner", "difficulte",
     "difficulté", "mortpermanente", "supprimer", "reset", "rang", "examen", "promotion", "combat",
     "attaquer", "jutsu", "defendre", "défendre", "esquiver", "fuir", "analyser",
+    "aventurer", "frontiere", "frontière", "inconnu",
     "commencer", "start", "creer", "créer", "nouveau",
 ]);
 
@@ -159,11 +161,15 @@ async function run(ctx) {
             return { text: r.ok ? `✅ ${r.nom} utilisé (${r.effets.join(", ") || "aucun effet"}).${tick(oc)}` : `❌ ${r.error}` };
         }
         case "carte": case "map": {
-            const dest = exploration.destinations(oc).map(d => `• *${d.id}* — ${d.nom} (${d.heures}h, danger ${d.danger})`).join("\n");
-            return { text: `🗺️ *CARTE* — tu es à *${loc(oc.lieu).nom}*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\nDestinations :\n${dest}\n\n👉 *!histoire voyager <lieu>*` };
+            const map = await worldmap.load(pseudo);
+            const ici = worldmap.resolve(map, oc.lieu);
+            const dest = worldmap.destinations(map, oc.lieu).map(d => `• *${d.id}* — ${d.nom} ${d.genere ? "✨" : ""}(${d.heures}h, danger ${d.danger})`).join("\n") || "_aucune_";
+            const desc = ici?.description ? `\n_${ici.description}_` : "";
+            return { text: `🗺️ *CARTE* — tu es à *${ici ? ici.nom : oc.lieu}*${desc}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\nDestinations :\n${dest}\n\n👉 *!histoire voyager <lieu>*\n🧭 *!histoire aventurer* — partir vers l'inconnu (génère une nouvelle zone)` };
         }
-        case "explorer": out = await doExplore(oc); await db.saveOC(pseudo, oc); return out;
-        case "voyager": case "aller": out = await doTravel(oc, arg); await db.saveOC(pseudo, oc); return out;
+        case "explorer": out = await doExplore(oc, pseudo); await db.saveOC(pseudo, oc); return out;
+        case "aventurer": case "frontiere": case "frontière": case "inconnu": out = await doAventurer(oc, pseudo); await db.saveOC(pseudo, oc); return out;
+        case "voyager": case "aller": out = await doTravel(oc, arg, pseudo); await db.saveOC(pseudo, oc); return out;
         case "mission": out = await doMission(oc, arg); await db.saveOC(pseudo, oc); return out;
         case "entrainer": case "entraîner": out = await doTrain(oc, arg); await db.saveOC(pseudo, oc); return out;
         case "manger": out = doEat(oc, arg); await db.saveOC(pseudo, oc); return out;
@@ -264,17 +270,44 @@ async function startFight(oc, enemyDef, introTxt) {
     return { text: `${narr}\n\n${renderCombat(oc, [introTxt])}` };
 }
 
-async function doExplore(oc) {
-    const r = exploration.explorer(oc);
-    return handleEvent(oc, r.event, `Tu explores ${r.lieu.nom}.`);
+async function doExplore(oc, pseudo) {
+    const map = await worldmap.load(pseudo);
+    const ici = worldmap.resolve(map, oc.lieu) || { nom: oc.lieu, danger: 1 };
+    world.advanceTime(oc, 0.5);
+    const ev = exploration.rollEvent(oc, (ici.danger || 1) + 1);
+    return handleEvent(oc, ev, `Tu explores ${ici.nom}.`);
 }
 
-async function doTravel(oc, destArg) {
+async function doTravel(oc, destArg, pseudo) {
     if (!destArg) return { text: "Où ? *!histoire voyager <lieu>* (vois !histoire carte)." };
-    const r = exploration.travel(oc, destArg.toLowerCase());
+    const map = await worldmap.load(pseudo);
+    if ((oc.besoins?.fatigue || 0) > 90) return { text: "😩 Trop épuisé pour voyager. Repose-toi (!histoire dormir)." };
+    const r = worldmap.travel(oc, map, destArg.toLowerCase());
     if (!r.ok) return { text: `❌ ${r.error}` };
-    profileMod.journal(oc, `Voyage vers ${r.dest.nom}.`);
-    return handleEvent(oc, r.event, `Après ${r.heures}h de route, tu arrives à ${r.dest.nom}.`);
+    oc.lieuNom = r.dest ? r.dest.nom : oc.lieu;
+    oc.lieuServices = (r.dest && r.dest.services) || [];
+    profileMod.journal(oc, `Voyage vers ${oc.lieuNom}.`);
+    const ev = exploration.rollEvent(oc, r.danger || 0);
+    return handleEvent(oc, ev, `Après ${r.heures}h de route, tu arrives à ${oc.lieuNom}.`);
+}
+
+// OPEN WORLD : part vers l'inconnu, l'IA génère une nouvelle zone persistée.
+async function doAventurer(oc, pseudo) {
+    if ((oc.besoins?.fatigue || 0) > 90) return { text: "😩 Trop épuisé pour partir à l'aventure. Repose-toi d'abord." };
+    const r = await worldmap.aventurer(oc, pseudo);
+    oc.lieuNom = r.loc.nom;
+    oc.lieuServices = r.loc.services || [];
+    profileMod.journal(oc, `Découverte : ${r.loc.nom}.`);
+    // narration : on donne la description générée à raconter
+    const desc = `${r.loc.description} ${r.loc.ambiance}`.trim();
+    const ev = exploration.rollEvent(oc, r.loc.danger);
+    const arrivee = `Après ${r.heures}h à travers ${r.loc.type}, tu découvres un lieu inconnu : ${r.loc.nom}. ${desc}`;
+    if (ev && ev.type !== "rien") {
+        if (ev.type === "combat") { const def = BOSSES[ev.ennemi] || npcAsEnemy(ev.ennemi); return startFight(oc, def, `${arrivee} ${ev.txt}`); }
+        return handleEvent(oc, ev, arrivee);
+    }
+    const narr = await withNarration(oc, arrivee, { lieuNom: r.loc.nom, consigne: "Fais découvrir ce nouveau lieu de façon immersive et donne envie de l'explorer." });
+    return { text: `🧭 *NOUVELLE ZONE DÉCOUVERTE* ✨\n\n${narr}\n\n📍 *${r.loc.nom}* (${r.loc.type}, danger ${r.loc.danger})${r.loc.services.length ? `\n🏪 Services : ${r.loc.services.join(", ")}` : ""}\n_Ce lieu est sauvegardé : tu pourras y revenir (!histoire carte)._${tick(oc)}` };
 }
 
 // Traite un événement de rencontre (combat / marchand / trésor / etc.).
@@ -354,8 +387,8 @@ function doDrink(oc, arg) {
     return { text: r.ok ? `🥤 Tu bois : ${r.nom} (${r.effets.join(", ")}).` : `❌ ${r.error}` };
 }
 async function doSleep(oc, arg) {
-    const l = loc(oc.lieu);
-    if (!l.services?.includes("repos") && oc.lieu !== "konoha" && !inventory.has(oc, "tente")) {
+    const svc = oc.lieuServices || loc(oc.lieu)?.services || [];
+    if (!svc.includes("repos") && oc.lieu !== "konoha" && !inventory.has(oc, "tente")) {
         return { text: "😴 Impossible de dormir ici en sécurité. Rejoins un village, une auberge, ou emporte une tente." };
     }
     const h = Math.max(1, Math.min(12, parseInt(arg) || 8));
@@ -366,23 +399,24 @@ async function doSleep(oc, arg) {
 }
 
 function doShopList(oc, arg) {
-    const l = loc(oc.lieu);
-    const dispo = (l.services || []).filter(s => SHOPS[s]);
+    const svc = oc.lieuServices || loc(oc.lieu)?.services || [];
+    const nomLieu = oc.lieuNom || loc(oc.lieu)?.nom || oc.lieu;
+    const dispo = svc.filter(s => SHOPS[s]);
     if (!arg) {
         if (!dispo.length) return "🚪 Aucune boutique ici.";
-        return `🏪 *BOUTIQUES ICI* (${l.nom})\n` + dispo.map(s => `• ${s} — ${SHOPS[s].nom}`).join("\n") + `\n\n👉 *!histoire boutique <nom>* pour voir les articles.`;
+        return `🏪 *BOUTIQUES ICI* (${nomLieu})\n` + dispo.map(s => `• ${s} — ${SHOPS[s].nom}`).join("\n") + `\n\n👉 *!histoire boutique <nom>* pour voir les articles.`;
     }
     const shop = SHOPS[arg];
     if (!shop) return "Boutique inconnue.";
-    if (!dispo.includes(arg)) return `Cette boutique n'est pas accessible ici (${l.nom}).`;
+    if (!dispo.includes(arg)) return `Cette boutique n'est pas accessible ici (${nomLieu}).`;
     const items = shop.items.map(id => `• *${id}* — ${ITEMS[id].nom} : ${economy.prixAchat(oc, id)}💴`).join("\n");
     return `🏪 *${shop.nom}*  ·  Ton or : ${oc.ryo}💴\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${items}\n\n👉 *!histoire acheter ${arg} <objet>*`;
 }
 function doBuy(oc, arg) {
     const [shop, item, q] = arg.split(/\s+/);
     if (!shop || !item) return { text: "Usage : *!histoire acheter <boutique> <objet> [quantité]*" };
-    const l = loc(oc.lieu);
-    if (!(l.services || []).includes(shop)) return { text: "Cette boutique n'est pas ici." };
+    const svc = oc.lieuServices || loc(oc.lieu)?.services || [];
+    if (!svc.includes(shop)) return { text: "Cette boutique n'est pas ici." };
     const r = economy.acheter(oc, shop, item, parseInt(q) || 1);
     return { text: r.ok ? `🛍️ Acheté : ${r.item} (-${r.total}💴). Il te reste ${oc.ryo}💴.` : `❌ ${r.error}` };
 }
