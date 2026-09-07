@@ -19,6 +19,12 @@ module.exports = {
   💡 *!aide <cmd>* pour le détail
   🎭 *!persona* pour changer mon ton
 
+╭──「 🍥 MODE HISTOIRE RPG 」
+│ 📖 !histoire — RPG Naruto persistant
+│ 🥷 crée ton ninja, genin → légende
+│ ⚔️ combats, missions, entraînement
+╰───────────────
+
 ╭──「 🧠 E.V.O · IA 」
 │ 💬 !evo <message> _(IA + mémoire)_
 │ 🖼️ !evo + image _(vision)_

@@ -118,6 +118,14 @@ Chaque jeu du casino est limité à **10 utilisations par semaine et par compte*
 
 `!evo` sait **ce qu'il est** : quand tu lui demandes ce qu'il sait faire, quelles commandes existent ou comment marche une commande, il puise dans sa propre base d'aide. Et quand tu poses une question sur **les données du serveur** (« combien de joueurs ? », « qui est premier au classement ? », « combien Paul a de Ryo ? », « stats »), il lit **en direct ta base Upstash** (nombre de joueurs, top 10 points/bourse, Ryo en circulation, fiche d'un joueur cité) et répond avec les vraies valeurs.
 
+## 🍥 Mode Histoire (RPG Naruto)
+
+`!histoire` lance un **RPG Naruto textuel persistant** : crée ton ninja OC (genin → légende),
+explore le monde, fais des missions, combats au **tour par tour** (moteur déterministe +
+narration IA), progresse et sauvegarde ta partie dans Upstash. Plusieurs joueurs jouent en
+parallèle, chacun sa sauvegarde. Détails complets et guide d'extension : **`story/README-HISTOIRE.md`**.
+Tests moteur : `node story/tests.js`.
+
 ## 👑 Admins
 
 Ajoute tes numéros (sans `+`) dans `ADMIN_NUMBERS` en haut de `index.js`.

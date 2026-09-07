@@ -236,6 +236,9 @@ module.exports = {
     askArbitre,
     getPersona,
     setPersona,
+    callHF,                 // exposé pour la narration du mode Histoire
+    hasToken: () => !!HF_TOKEN,
+    MODEL: HF_MODEL,
     resetHistory: (id) => delHist(HIST_PREFIX + id),
     resetDuel: (id) => delHist(DUEL_PREFIX + id),
 };
