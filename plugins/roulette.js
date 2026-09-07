@@ -41,7 +41,7 @@ module.exports = {
             });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "roulette");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const resultat = tournerRoue();

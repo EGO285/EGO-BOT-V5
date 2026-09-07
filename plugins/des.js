@@ -38,7 +38,7 @@ module.exports = {
             });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "des");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const d1 = 1 + Math.floor(Math.random() * 6);

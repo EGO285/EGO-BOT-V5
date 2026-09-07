@@ -37,7 +37,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "grattage");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const t = [tirer(), tirer(), tirer()];

@@ -1,6 +1,7 @@
 const { askEVO } = require("../utils/evoAI");
 const { getImageDataUrl, hasImage } = require("../utils/evoMedia");
 const { buildWebContext } = require("../utils/evoWeb");
+const { buildSelfContext } = require("../utils/evoKnowledge");
 
 module.exports = {
     command: "!evo",
@@ -33,7 +34,15 @@ module.exports = {
             if (img?.dataUrl) opts.imageDataUrl = img.dataUrl;
         }
 
-        // 2) Internet (liens + recherche) — seulement en mode texte
+        // 2) Conscience de soi : commandes + base de données (si la question s'y prête)
+        if (!opts.imageDataUrl) {
+            try {
+                const self = await buildSelfContext(message);
+                if (self) opts.selfContext = self;
+            } catch (e) {}
+        }
+
+        // 3) Internet (liens + recherche) — seulement en mode texte
         let sources = [];
         if (!opts.imageDataUrl) {
             try {

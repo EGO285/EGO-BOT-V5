@@ -7,178 +7,96 @@ module.exports = {
 
     async handler(sock, m, text, { senderJid, senderNumber }) {
         const from = m.key.remoteJid;
+        const heure = new Date().toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
 
         const caption =
-`*_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*
-*_🔶SHINOBI STORM RP🎮_*
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-*📜 MENU PRINCIPAL*
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-_▲ En ligne👤:_ @${senderNumber}
-_▲ Assistant : E.V.O (EGO VIRTUAL OPERATOR)_
-_▲ Tape !aide <commande> pour le détail_
-_▲ Nouveau : !about · !evo_
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-⟡ *COMBAT* ⚔️
-⚔️ !combat
-🏁 !verdict
-🏆 !win
-😭 !lose
-🛑 !stopfight
+`╔═══════════════════════╗
+   🔷  E · V · O
+   𝐄𝐆𝐎 𝐕𝐈𝐑𝐓𝐔𝐀𝐋 𝐎𝐏𝐄𝐑𝐀𝐓𝐎𝐑
+╚═══════════════════════╝
+  👤 @${senderNumber}
+  🕒 ${heure}  ·  🌐 Shinobi Storm
+  💡 *!aide <cmd>* pour le détail
+  🎭 *!persona* pour changer mon ton
 
-⟡ *DUEL* 🤺
-🤺 !duel debut @j1 vs @j2
-❌ !duel off
-📜 !historique
+╭──「 🧠 E.V.O · IA 」
+│ 💬 !evo <message> _(IA + mémoire)_
+│ 🖼️ !evo + image _(vision)_
+│ 🌐 !web <recherche>
+│ ⚖️ !arbitre <action RP>
+│ 🎭 !persona · 🤖 !about
+╰───────────────
 
-⟡ *CHRONO* ⏱️
-⏱️ !timer <min>
-📡 !latence
-⏸️ !pause
-▶️ !go
-⏹️ !stop
+╭──「 ⚔️ COMBAT · DUEL 」
+│ !combat · !verdict · !stopfight
+│ !win · !lose
+│ !duel debut @a vs @b · !duel off
+│ !historique
+╰───────────────
 
-⟡ *JOUEUR* 👤
-🆕 !new <pseudo>
-🪪 !fiche <pseudo>
-🏅 !classement
-📊 !rang <pseudo>
-🃏 !collection <pseudo>
-🎁 !daily <pseudo>
-📜 !logs <pseudo>
+╭──「 ⏱️ CHRONO 」
+│ !timer <min> · !latence
+│ !pause · !go · !stop
+╰───────────────
 
-⟡ *CARTES* 🎴
-🎴 !tirage c/b/a/s/random
-🔎 !carte <nom>
-🛍️ !boutique
-💸 !acheter <nom> <pseudo>
-💰 !vendre <nom> <pseudo>
-🤝 !echange <pseudoA> <pseudoB> <nom>
-📖 !rules
+╭──「 👤 JOUEUR 」
+│ !new · !fiche · !classement
+│ !rang · !collection · !daily · !logs
+╰───────────────
 
-⟡ *CASINO* 🎰
-🎰 !casino
-🪙 !pof
-🎰 !machine
-🎲 !des
-🎡 !roulette
-🃏 !hl
-🃏 !blackjack
-🎲 !craps
-🎟️ !loto
-🔁 !doubleornothing
-🔢 !devine
-🎲 !parilibre debut <p1> <p2>
-📋 !parilibre liste
-💵 !parier <pseudo> <montant> <p_choisi> [id]
-✏️ !modifierpari <pseudo> <montant> [id]
-📊 !mesparis <pseudo>
-📜 !parishistorique [pseudo]
+╭──「 🎴 CARTES 」
+│ !tirage c/b/a/s · !carte <nom>
+│ !boutique · !acheter · !vendre
+│ !echange · !rules
+╰───────────────
 
-⟡ *BANQUE* 🏦
-🆕 !creercompte <code> <pseudo>
-💸 !emprunter <code> <pseudo> <montant>
-💰 !rembourser <code> <pseudo> <montant>
-💳 !dette <pseudo>
-📜 !releve <pseudo>
-🔁 !virement <code> <toi> <dest> <montant>
-🏦 !deposer <code> <pseudo> <montant>
-💵 !retirer <code> <pseudo> <montant>
-📋 !condbanque
+╭──「 🎰 CASINO 」_(10×/sem. par jeu)_
+│ !casino · !pof · !machine · !des
+│ !roulette · !hl · !blackjack · !craps
+│ !loto · !doubleornothing · !devine
+│ 🆕 !crash · !mines · !penalty
+│ 🆕 !chifoumi · !course · !fleche
+│ 🆕 !grattage · !plinko · !wheel
+│ 🆕 !keno · !bataille · !echelle
+╰───────────────
 
-⟡ *ADMIN* 🛡️
-🗑️ !delete
-💰 !addmoney
-⭐ !addstars
-🛡️ !setstats
-🎴 !donnercarte <nom> <pseudo>
-📊 !stats globales
-🔄 !reset
-🔓 !unlock <pseudo>
-⛔ !banfiche <pseudo>
-✅ !unbanfiche <pseudo>
-♻️ !resetfiche <pseudo>
-🗂️ !listegroupes
-🚪 !quittergroupe <id>
-🖼️ !setmenumedia <menu> <url>
-🤖 !photobot
-📣 !broadcast <message>
+╭──「 💵 PARIS 」
+│ !parilibre debut <p1> <p2>
+│ !parilibre liste · !parier · !modifierpari
+│ !mesparis · !parishistorique
+╰───────────────
 
-⟡ *GESTION DE GROUPE* 🛡️
-📢 !tagall [message]
-🔔 !hidetag [message]
-👢 !kick @membre
-⬆️ !promote @membre
-⬇️ !demote @membre
-ℹ️ !groupinfo
-✏️ !setgroupname <nom>
-📝 !setgroupdesc <description>
-🔒 !fermergroupe
-🔓 !ouvrirgroupe
+╭──「 🏦 BANQUE 」
+│ !creercompte · !emprunter · !rembourser
+│ !dette · !releve · !virement
+│ !deposer · !retirer · !condbanque
+╰───────────────
 
-⟡ *E.V.O* 🤖
-🤖 !about
-💬 !evo <message> (IA, images, web)
-⚖️ !arbitre <action> (duels RP)
-🌐 !web <recherche>
-ℹ️ !botinfo
-🟢 !uptime
-🕒 !heure
-🧮 !calc <expr>
-🖼️ !avatar [@membre]
+╭──「 🎉 FUN · SOCIAL 」
+│ !8ball · !roll · !pileouface · !ship
+│ !niveau · !citation · !blague
+│ !motivation · !compliment · !clash
+│ !choix · !sondage · !quiz + !rep
+│ !defi · !verite · !horoscope · !tagadmins
+╰───────────────
 
-⟡ *NOUVEAUX JEUX* 🎰
-🚀 !crash <pseudo> <mise> <objectif>
-💣 !mines <pseudo> <mise> [nbMines]
-⚽ !penalty <g|c|d> <pseudo> <mise>
-✊ !chifoumi <coup> <pseudo> <mise>
-🏇 !course <1-4> <pseudo> <mise>
-🎯 !fleche <pseudo> <mise>
-🎫 !grattage <pseudo> <mise>
-🔴 !plinko <pseudo> <mise>
-🎡 !wheel <pseudo> <mise>
-🔢 !keno <pseudo> <mise> <n...>
-🃏 !bataille <pseudo> <mise>
-🪜 !echelle <pseudo> <mise> <niv>
+╭──「 🧰 OUTILS 」
+│ !calc · !heure · !avatar · !uptime · !botinfo
+╰───────────────
 
-⟡ *ÉCONOMIE / MÉTIERS* 💼
-💼 !travailler <pseudo>
-💵 !salaire <pseudo>
-🙏 !aumone <pseudo>
-🎣 !peche <pseudo>
-⛏️ !miner <pseudo>
-🏹 !chasser <pseudo>
-📜 !quete <pseudo>
-🔪 !crime <pseudo>
-🏦 !braquage <pseudo>
-🔐 !casse <pseudo>
-📦 !contrebande <pseudo>
-🏭 !entreprise <pseudo>
-📈 !investir <pseudo> <montant>
-🕵️ !voler <toi> <cible>
-🎁 !don <toi> <dest> <montant>
+╭──「 🛡️ ADMIN · GROUPE 」
+│ !addmoney · !addstars · !setstats
+│ !delete · !reset · !resetfiche · !unlock
+│ !banfiche · !unbanfiche · !donnercarte
+│ !broadcast · !listegroupes · !quittergroupe
+│ !setmenumedia · !stats · !photobot
+│ !tagall · !hidetag · !kick · !promote
+│ !demote · !groupinfo · !setgroupname
+│ !setgroupdesc · !fermergroupe · !ouvrirgroupe
+╰───────────────
 
-⟡ *FUN / SOCIAL* 🎉
-🎱 !8ball <question>
-🎲 !roll [max]
-🪙 !pileouface
-💘 !ship <a> <b>
-📊 !niveau <pseudo> <critère>
-📖 !citation
-😂 !blague
-🔥 !motivation
-💐 !compliment [@x]
-😏 !clash [@x]
-🤔 !choix a | b | c
-🗳️ !sondage q | o1 | o2
-🧠 !quiz  ·  ✍️ !rep <réponse>
-🎯 !defi  ·  💬 !verite
-🔮 !horoscope <signe>
-📣 !tagadmins [message]
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-_🤖 E.V.O — EGO VIRTUAL OPERATOR · créé par ego_
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
-*_▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩▢▩_*`;
+  ⚡ créé par *ego*  ·  E.V.O v2
+╚═══════════════════════╝`;
 
         const media = await getMenuMedia("menu", MEDIA_PAR_DEFAUT);
 

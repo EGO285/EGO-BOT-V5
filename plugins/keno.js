@@ -25,7 +25,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "keno");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const pool = Array.from({ length: 10 }, (_, i) => i + 1).sort(() => Math.random() - 0.5);

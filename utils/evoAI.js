@@ -24,6 +24,7 @@ const axios = require("axios");
 const { Redis } = require("@upstash/redis");
 const { evoChat } = require("./evoVoice");
 const { SUMMARY, KNOWLEDGE, CARD_RULES, ARBITRE_SYSTEM } = require("./shinobiLore");
+const { personaSystem, DEFAULT_KEY } = require("./evoPersona");
 
 const HF_TOKEN = process.env.HF_TOKEN || "";
 const HF_MODEL = process.env.HF_MODEL || "meta-llama/Llama-3.1-8B-Instruct";
@@ -36,6 +37,7 @@ const DUEL_MAX_TOURS = 20; // l'arbitre garde plus de contexte (mémoire de comb
 const HIST_TTL_S = (parseInt(process.env.EVO_HIST_TTL) || 30) * 24 * 60 * 60;
 const HIST_PREFIX = "evo:hist:";
 const DUEL_PREFIX = "evo:duel:";
+const PERSONA_PREFIX = "evo:persona:";
 
 // ── Client Redis (réutilise TA base Upstash) ────────────────
 let redis = null;
@@ -50,16 +52,22 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
     }
 }
 const ramHistory = {};
+const ramPersona = {};
 
-// ── Persona de base ─────────────────────────────────────────
-const PERSONA = [
-    "Tu es E.V.O (EGO VIRTUAL OPERATOR), un assistant virtuel créé par 'ego'.",
-    "Tu vis dans un bot WhatsApp de serveur RP/casino/banque nommé Shinobi Storm.",
-    "Réponds toujours en français, de façon naturelle, vivante et un peu stylée, mais concise.",
-    "Varie tes formulations. Tu te souviens de la conversation : sers-t'en.",
-    "Si on te demande qui t'a créé, réponds : ego.",
-    "Réponses courtes (2 à 6 phrases) car c'est du chat WhatsApp. Texte simple, quelques emojis si ça colle.",
-].join(" ");
+// ── Personnalité choisie par personne ───────────────────────
+async function getPersona(scopeId) {
+    const k = PERSONA_PREFIX + scopeId;
+    if (redis) {
+        try { const v = await redis.get(k); return v || ramPersona[k] || DEFAULT_KEY; }
+        catch (e) { return ramPersona[k] || DEFAULT_KEY; }
+    }
+    return ramPersona[k] || DEFAULT_KEY;
+}
+async function setPersona(scopeId, personaKey) {
+    const k = PERSONA_PREFIX + scopeId;
+    ramPersona[k] = personaKey;
+    if (redis) { try { await redis.set(k, personaKey); } catch (e) {} }
+}
 
 // Choisit le bloc de connaissance Shinobi à injecter selon le message.
 function shinobiContext(message) {
@@ -119,7 +127,11 @@ async function askEVO(scopeId, message, opts = {}) {
     if (!msg && !opts.imageDataUrl) return { text: evoChat(""), source: "local" };
     if (!HF_TOKEN) return { text: evoChat(msg), source: "local" };
 
-    const systeme = PERSONA + "\n\n" + shinobiContext(msg)
+    const personaKey = await getPersona(scopeId);
+    const systeme = personaSystem(personaKey)
+        + "\n\nTu ES le bot de ce serveur : tu connais tes propres commandes (préfixe !) et tu peux consulter la base de données des joueurs. Quand des infos sur tes commandes ou ta base sont fournies ci-dessous, appuie-toi dessus (ce sont des données réelles, pas des suppositions)."
+        + "\n\n" + shinobiContext(msg)
+        + (opts.selfContext ? "\n\n" + opts.selfContext : "")
         + (opts.webContext ? "\n\nINFOS INTERNET (fraîches, utilise-les et cite les sources si tu t'en sers) :\n" + opts.webContext : "");
 
     const historique = await loadHist(key);
@@ -219,4 +231,11 @@ async function askArbitre(duelId, action, opts = {}) {
     }
 }
 
-module.exports = { askEVO, askArbitre, resetHistory: (id) => delHist(HIST_PREFIX + id), resetDuel: (id) => delHist(DUEL_PREFIX + id) };
+module.exports = {
+    askEVO,
+    askArbitre,
+    getPersona,
+    setPersona,
+    resetHistory: (id) => delHist(HIST_PREFIX + id),
+    resetDuel: (id) => delHist(DUEL_PREFIX + id),
+};

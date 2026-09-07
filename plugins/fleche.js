@@ -28,7 +28,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "fleche");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const total = ZONES.reduce((s, z) => s + z[2], 0);

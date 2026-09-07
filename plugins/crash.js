@@ -24,7 +24,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "crash");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         // Point d'explosion avec avantage maison (~3%).

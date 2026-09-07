@@ -23,7 +23,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "echelle");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         let atteint = 0;

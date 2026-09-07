@@ -177,11 +177,31 @@ function estFicheBloquee(user) {
 }
 
 // ──────────────────────────────────────────────
-// Logique commune à tous les jeux de casino :
-// vérifie que le joueur a une fiche, n'est pas bloqué, et a assez
-// d'argent pour la mise demandée.
+// LIMITE HEBDOMADAIRE DES JEUX DE CASINO
+// Chaque jeu du casino est limité à CASINO_WEEKLY_MAX utilisations
+// par compte et par semaine (semaine glissante calée sur l'epoch).
+// Le compteur est stocké sur la fiche : user.casinoWeek = { week, counts }.
 // ──────────────────────────────────────────────
-async function checkCanPlay(pseudo, mise) {
+const CASINO_WEEKLY_MAX = 10;
+
+// Numéro de semaine glissant (change tous les 7 jours, réinitialisation auto).
+function currentWeek() {
+    return Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+}
+
+// Temps restant (ms) avant la prochaine réinitialisation hebdomadaire.
+function msUntilWeekReset() {
+    const semaineMs = 7 * 24 * 60 * 60 * 1000;
+    return semaineMs - (Date.now() % semaineMs);
+}
+
+// ──────────────────────────────────────────────
+// Logique commune à tous les jeux de casino :
+// vérifie que le joueur a une fiche, n'est pas bloqué, a assez d'argent,
+// et n'a pas dépassé sa limite hebdomadaire pour CE jeu (si `game` fourni).
+// Le compteur est incrémenté ici (mémoire) et persisté par applyCasinoResult.
+// ──────────────────────────────────────────────
+async function checkCanPlay(pseudo, mise, game) {
     if (!pseudo) {
         return { ok: false, error: "❌ Indique ton pseudo. Exemple : *!pof paul*" };
     }
@@ -203,6 +223,26 @@ async function checkCanPlay(pseudo, mise) {
             ok: false,
             error: `❌ Fonds insuffisants.\n💰 Bourse actuelle : *${user.money}🔶*\n🎯 Mise requise : *${mise}🔶*`
         };
+    }
+
+    // Limite hebdomadaire par jeu
+    if (game) {
+        const semaine = currentWeek();
+        if (!user.casinoWeek || user.casinoWeek.week !== semaine) {
+            user.casinoWeek = { week: semaine, counts: {} };
+        }
+        const utilise = user.casinoWeek.counts[game] || 0;
+        if (utilise >= CASINO_WEEKLY_MAX) {
+            const reste = msUntilWeekReset();
+            const jours = Math.floor(reste / (24 * 60 * 60 * 1000));
+            const heures = Math.floor((reste % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+            return {
+                ok: false,
+                error: `🚫 *Limite hebdomadaire atteinte* pour *${game}*.\nTu as utilisé tes *${CASINO_WEEKLY_MAX}* parties de la semaine sur ce jeu.\n⏳ Réinitialisation dans *${jours}j ${heures}h*.\n_(La limite est de ${CASINO_WEEKLY_MAX}/semaine par jeu et par compte.)_`
+            };
+        }
+        // Incrémente le compteur ; sera sauvegardé par applyCasinoResult.
+        user.casinoWeek.counts[game] = utilise + 1;
     }
 
     return { ok: true, key, user };
@@ -1105,6 +1145,7 @@ async function adminListerComptes() {
 }
 
 module.exports = {
+    CASINO_WEEKLY_MAX,
     getUser,
     saveUser,
     deleteUser,

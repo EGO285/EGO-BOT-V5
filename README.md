@@ -103,6 +103,21 @@ Il se présente comme créé par *ego* et répond en français, concis et varié
 
 **Arbitre RP** — `!arbitre <ton action>` : E.V.O arbitre les duels selon les **règles officielles de Shinobi Storm** (créé par EGO WINTERSON, 11/09/2024). Il est neutre, applique la logique distance/vitesse/temps/trajectoire, refuse l'auto-hit et le métagaming, **garde la mémoire du combat** (positions, blessures, techniques, projectiles) et rend un **verdict motivé**. `!arbitre reset` réinitialise le duel. Les règles et la base de connaissances sont implantées dans E.V.O, qui est donc incollable sur Shinobi Storm (y compris via `!evo`).
 
+## 🎭 Personnalités de E.V.O (9 au choix)
+
+`!persona` affiche les 9 personnalités et celle active ; `!persona <numéro|nom>` en change :
+**Classique 🤖 · Sensei 🧘 · Comique 😂 · Pro 💼 · Sarcastique 😏 · Hype 🔥 · Doux 🌸 · Rebelle 😼 · Poète 🎭**.
+Le choix est **propre à chaque personne** (mémorisé dans Upstash) et ne change que le TON de `!evo`.
+_L'arbitre `!arbitre` reste toujours neutre, quelle que soit la personnalité._
+
+## 🎰 Limite hebdomadaire du casino
+
+Chaque jeu du casino est limité à **10 utilisations par semaine et par compte** (limite indépendante par jeu : 10 `!pof`, 10 `!crash`, etc.). La semaine se réinitialise automatiquement tous les 7 jours. Réglable via la constante `CASINO_WEEKLY_MAX` en haut de la section casino de `utils/users.js`.
+
+## 🧩 Conscience de soi & de la base
+
+`!evo` sait **ce qu'il est** : quand tu lui demandes ce qu'il sait faire, quelles commandes existent ou comment marche une commande, il puise dans sa propre base d'aide. Et quand tu poses une question sur **les données du serveur** (« combien de joueurs ? », « qui est premier au classement ? », « combien Paul a de Ryo ? », « stats »), il lit **en direct ta base Upstash** (nombre de joueurs, top 10 points/bourse, Ryo en circulation, fiche d'un joueur cité) et répond avec les vraies valeurs.
+
 ## 👑 Admins
 
 Ajoute tes numéros (sans `+`) dans `ADMIN_NUMBERS` en haut de `index.js`.
@@ -129,8 +144,9 @@ Tape **`!menu`** pour tout voir, **`!aide <commande>`** pour le détail d'une co
 `!blague` · `!motivation` · `!compliment` · `!clash` (300+ variantes) · `!choix` · `!sondage` · `!quiz` +
 `!rep` · `!defi` · `!verite` · `!horoscope` · `!tagadmins`
 
-Toutes les commandes qui touchent à l'argent utilisent la **fiche joueur Upstash** (crée
-une fiche avec `!new <pseudo>`), et les métiers ont un **cooldown** (temps d'attente).
+Toutes les commandes qui touchent à l'argent utilisent la **fiche joueur Upstash** (crée une fiche avec `!new <pseudo>`).
+
+> ℹ️ Les commandes **métiers/économie** (`!travailler`, `!braquage`, `!crime`, `!voler`…) fonctionnent toujours mais **ne sont plus affichées dans `!menu`** (retirées à ta demande).
 
 ---
 
@@ -145,6 +161,8 @@ une fiche avec `!new <pseudo>`), et les métiers ont un **cooldown** (temps d'at
 - `utils/evoAI.js` — cerveau IA : `!evo` (chat, vision, web, lore) et `!arbitre` (arbitrage), mémoire persistante Upstash + repli.
 - `utils/evoWeb.js` — accès internet : recherche web (Tavily) + lecture de liens.
 - `utils/evoMedia.js` — récupère/encode les images WhatsApp pour la vision.
+- `utils/evoKnowledge.js` — conscience de soi : catalogue de ses commandes + lecture live de la base Upstash.
+- `utils/evoPersona.js` — les 9 personnalités de !evo.
 - `utils/shinobiLore.js` — base de connaissances + règles officielles de Shinobi Storm, injectées dans E.V.O et l'arbitre.
 - `utils/evoGame.js` — helpers des nouveaux jeux/métiers (cooldowns, hasard).
 - `utils/suggest.js` — distance de Levenshtein + suggestion de la commande la plus proche.

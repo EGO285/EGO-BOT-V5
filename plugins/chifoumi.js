@@ -24,7 +24,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "chifoumi");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const bot = Object.keys(COUPS)[Math.floor(Math.random() * 3)];

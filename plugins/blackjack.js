@@ -51,7 +51,7 @@ module.exports = {
             });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "blackjack");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         // Le joueur tire des cartes automatiquement jusqu'à s'arrêter à >= 17

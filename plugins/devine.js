@@ -30,7 +30,7 @@ module.exports = {
             });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "devine");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const nombreSecret = MIN + Math.floor(Math.random() * (MAX - MIN + 1));

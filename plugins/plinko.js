@@ -24,7 +24,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "plinko");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         // 8 rebonds gauche/droite -> position 0..8 (loi binomiale, centrée).

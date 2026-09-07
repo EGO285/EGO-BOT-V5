@@ -24,7 +24,7 @@ module.exports = {
             }) });
         }
 
-        const check = await checkCanPlay(pseudo, mise);
+        const check = await checkCanPlay(pseudo, mise, "penalty");
         if (!check.ok) return sock.sendMessage(from, { text: check.error });
 
         const gardien = COTES[Math.floor(Math.random() * 3)];
