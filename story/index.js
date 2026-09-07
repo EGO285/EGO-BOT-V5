@@ -23,8 +23,21 @@ const { loc, LOCATIONS } = require("./data/locations");
 const { SHOPS, ITEMS } = require("./data/items");
 const { NPCS } = require("./data/npcs");
 const { BOSSES } = require("./data/bosses");
+let getUser = null;
+try { ({ getUser } = require("../utils/users")); } catch (e) {}
 
 const BIND = (sender) => `story:bind:${sender}`;
+
+// Sous-commandes reconnues (sert à distinguer un pseudo d'une commande).
+const KNOWN_SUBS = new Set([
+    "", "reprendre", "aide", "fiche", "perso", "stats", "jutsu", "techniques", "sac", "inventaire",
+    "objet", "utiliser", "carte", "map", "explorer", "voyager", "aller", "mission", "entrainer",
+    "entraîner", "manger", "boire", "dormir", "boutique", "shop", "acheter", "vendre", "relations",
+    "reputation", "réputation", "apprendre", "sauvegarde", "save", "abandonner", "difficulte",
+    "difficulté", "mortpermanente", "supprimer", "reset", "rang", "examen", "promotion", "combat",
+    "attaquer", "jutsu", "defendre", "défendre", "esquiver", "fuir", "analyser",
+    "commencer", "start", "creer", "créer", "nouveau",
+]);
 
 // Résout l'OC lié à ce joueur WhatsApp.
 async function resolvePseudo(sender) { return db.get(BIND(sender)); }
@@ -61,13 +74,20 @@ async function run(ctx) {
 
     // ---- Création / accès ----
     if (["commencer", "start", "creer", "créer", "nouveau"].includes(sub)) {
-        if (!fiche) return { text: "🚫 Tu dois d'abord créer ta fiche Shinobi Storm avant de pouvoir commencer une Histoire OC.\n👉 *!new <pseudo>*" };
-        const existant = await db.getOC(fiche.pseudo);
-        if (existant && !ctx.forceReset) {
-            await db.set(BIND(sender), fiche.pseudo);
-            return { text: `📖 Tu as déjà un personnage : *${existant.identite.prenom}*.\nTape *!histoire* pour reprendre, ou *!histoire supprimer* pour recommencer.` };
+        // Pseudo de la fiche = 1er mot sans "=", sinon la fiche déjà liée.
+        const tokens = arg.split(/\s+/).filter(Boolean);
+        let pseudoFiche = tokens.find(t => !t.includes("=")) || (await resolvePseudo(sender));
+        if (!pseudoFiche) {
+            return { text: "🍥 *MODE HISTOIRE* — pour commencer, donne le nom de ta fiche Shinobi Storm :\n👉 *!histoire commencer <ton pseudo>*\n_Ex : !histoire commencer Kaito clan=uchiha_\n\n_(pas encore de fiche ? crée-la avec *!new <pseudo>*)_" };
         }
-        // options : clan, sexe via arg "clan=uchiha sexe=M prenom=..."
+        const fiche = getUser ? await getUser(pseudoFiche) : null;
+        if (!fiche) return { text: `🚫 Aucune fiche Shinobi Storm au nom de *${pseudoFiche}*.\nCrée-la d'abord : *!new ${pseudoFiche}*` };
+
+        const existant = await db.getOC(fiche.pseudo);
+        if (existant) {
+            await db.set(BIND(sender), fiche.pseudo);
+            return { text: `📖 *${fiche.pseudo}* a déjà un personnage : *${existant.identite.prenom}*.\n✅ Fiche liée à ce compte — tape *!histoire* pour reprendre.\n_(ou *!histoire supprimer confirmer* pour recommencer)_` };
+        }
         const opts = parseOpts(arg);
         const oc = profileMod.createOC(fiche.pseudo, fiche, opts);
         await db.saveOC(fiche.pseudo, oc);
@@ -78,9 +98,25 @@ async function run(ctx) {
     }
 
     // Résoudre le personnage courant
-    const pseudo = await resolvePseudo(sender);
+    let pseudo = await resolvePseudo(sender);
+
+    // ---- Pas encore lié : lier une fiche existante ----
     if (!pseudo) {
-        return { text: "🍥 *SHINOBI STORM — MODE HISTOIRE*\n\nTu n'as pas encore de personnage lié.\n👉 *!histoire commencer* (il te faut une fiche Shinobi Storm, sinon fais *!new <pseudo>*).\n\nOptions à la création : *!histoire commencer clan=uchiha sexe=M prenom=Kaito*" };
+        // "!histoire <pseudo>" (mot inconnu comme sous-commande) => tentative de liaison.
+        if (sub && !KNOWN_SUBS.has(sub)) {
+            const fiche = getUser ? await getUser(sub) : null;
+            if (!fiche) return { text: `🚫 Aucune fiche Shinobi Storm au nom de *${sub}*.\nVérifie l'orthographe, ou crée ta fiche : *!new ${sub}*` };
+            const existant = await db.getOC(fiche.pseudo);
+            if (existant) {
+                await db.set(BIND(sender), fiche.pseudo);
+                pseudo = fiche.pseudo; // continue vers la reprise ci-dessous
+                sub = ""; // affiche l'écran de reprise/HUD
+            } else {
+                return { text: `📇 Fiche *${fiche.pseudo}* trouvée, mais elle n'a pas encore de personnage Histoire.\n👉 *!histoire commencer ${fiche.pseudo}* pour créer ton ninja.` };
+            }
+        } else {
+            return { text: "🍥 *SHINOBI STORM — MODE HISTOIRE*\n\nQuelle est ta fiche ? Écris ton pseudo pour la lier :\n👉 *!histoire <ton pseudo>*\n\n• Nouveau ? crée un ninja : *!histoire commencer <ton pseudo>*\n• Pas de fiche ? *!new <pseudo>* d'abord.\n_Aide complète : !histoire aide_" };
+        }
     }
     let oc = await db.getOC(pseudo);
     if (!oc) { await db.del(BIND(sender)); return { text: "❌ Personnage introuvable. Refais *!histoire commencer*." }; }
