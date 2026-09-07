@@ -28,7 +28,10 @@ résultat en récit — elle ne décide jamais d'un chiffre. Le jeu **fonctionne
 - **Économie** : `boutique [nom]` · `acheter <boutique> <objet>` · `vendre <objet>`
 - **Social** : `relations` · `reputation`
 - **Système** : `difficulte <narratif|normal|shinobi|hardcore>` · `mortpermanente on/off` · `sauvegarde` · `supprimer confirmer`
-- **En combat** : `attaquer` · `jutsu <nom>` · `defendre` · `esquiver` · `objet <obj>` · `analyser` · `fuir`
+- **Combat en PAVÉ LIBRE** : tu écris ton action (*!histoire je fonce et lance un Katon Goukakyuu*). L'IA résout selon la **difficulté**, le moteur **valide ton arsenal** (jutsu/objets réellement possédés — sinon tu es *immobile/à découvert*), déduit chakra/objets et **borne les dégâts** (anti-triche). `fuir` pour partir.
+- **pause / resume** : *!histoire pause* sauvegarde et quitte ; *!histoire resume* reprend (même en plein combat).
+- **Coop** : *!histoire coop creer* / *coop rejoindre <code>* / *coop combat* (boss partagé, récompenses pour toute l'équipe) / *coop quitter*.
+- **(ancien) En combat menu** : `attaquer` · `jutsu <nom>` · `defendre` · `esquiver` · `objet <obj>` · `analyser` · `fuir`
 
 ## Systèmes implémentés (moteur réel)
 Fiche OC complète · stats + stats dérivées · XP/niveaux/points · rangs académie→légende ·

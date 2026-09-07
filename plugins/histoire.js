@@ -21,7 +21,9 @@ module.exports = {
             res = { text: "⚠️ Une secousse dans le flux du chakra a interrompu l'action. Ta progression est sauvegardée — réessaie." };
         }
 
-        await sock.sendMessage(from, { text: res.text, mentions: [senderJid] });
+        // Tag du joueur à chaque réponse/génération.
+        const texte = `@${senderNumber}\n${res.text}`;
+        await sock.sendMessage(from, { text: texte, mentions: [senderJid] });
         try { await sock.sendPresenceUpdate("paused", from); } catch (e) {}
     }
 };

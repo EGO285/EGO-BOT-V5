@@ -13,11 +13,14 @@ const economy = require("./engine/economy");
 const missions = require("./engine/missions");
 const exploration = require("./engine/exploration");
 const worldmap = require("./engine/worldmap");
+const coop = require("./engine/coop");
 const training = require("./engine/training");
 const relations = require("./engine/relations");
 const world = require("./engine/world");
 const render = require("./ui/render");
 const gm = require("./ai/gm");
+const arsenal = require("./engine/arsenal");
+const combatgm = require("./ai/combatgm");
 const { JUTSU } = require("./data/jutsu");
 const { CLANS } = require("./data/clans");
 const { loc, LOCATIONS } = require("./data/locations");
@@ -38,6 +41,7 @@ const KNOWN_SUBS = new Set([
     "difficulté", "mortpermanente", "supprimer", "reset", "rang", "examen", "promotion", "combat",
     "attaquer", "jutsu", "defendre", "défendre", "esquiver", "fuir", "analyser",
     "aventurer", "frontiere", "frontière", "inconnu",
+    "pause", "resume", "coop",
     "commencer", "start", "creer", "créer", "nouveau",
 ]);
 
@@ -126,23 +130,40 @@ async function run(ctx) {
 
     let out;
 
-    // ---- Actions de COMBAT (prioritaires si combat en cours) ----
+    // ---- COOP : combat de boss PARTAGÉ en cours ----
+    const monEquipe = await coop.party(pseudo);
+    const infoSubs = ["coop", "fiche", "perso", "sac", "inventaire", "jutsu", "techniques", "aide", "stats", "pause", "resume", ""];
+    if (monEquipe && monEquipe.combat && !infoSubs.includes(sub)) {
+        const pave = `${sub} ${arg}`.trim();
+        out = await doCoopCombat(oc, pave, pseudo, monEquipe);
+        await db.saveOC(pseudo, oc);
+        return out;
+    }
+
+    // ---- COMBAT PAR PAVÉ (prioritaire si combat solo en cours) ----
     if (combatActif(oc)) {
-        const actionsCombat = ["attaquer", "jutsu", "defendre", "défendre", "esquiver", "fuir", "objet", "analyser"];
-        if (actionsCombat.includes(sub)) {
-            out = await doCombat(oc, sub, arg);
-            await db.saveOC(pseudo, oc);
-            return out;
+        // Contrôles réservés
+        if (sub === "fuir") { out = await doCombat(oc, "fuir", ""); await db.saveOC(pseudo, oc); return out; }
+        if (sub === "pause") { await db.saveOC(pseudo, oc); return { text: `⏸️ Combat mis en pause et sauvegardé. Reviens avec *!histoire resume* — tu reprendras en plein duel contre *${oc.combat.enemy.nom}*.` }; }
+        if (["statut", "etat", "état", "combat"].includes(sub) && !arg) {
+            return { text: renderCombat(oc, [`À toi de jouer ! Écris ton action (ton pavé RP).`]) };
         }
-        if (sub === "" || sub === "combat") {
-            return { text: renderCombat(oc, ["Combat en cours."]) };
-        }
-        // toute autre commande pendant le combat
-        return { text: `⚔️ Tu es en plein combat contre *${oc.combat.enemy.nom}* !\nActions : *attaquer · jutsu <nom> · defendre · esquiver · objet <obj> · analyser · fuir*` };
+        // Tout le reste = PAVÉ LIBRE du joueur
+        const pave = `${sub} ${arg}`.trim();
+        if (!pave) return { text: renderCombat(oc, ["Décris ton action : *!histoire <ton pavé de combat>*"]) };
+        out = await doCombatIA(oc, pave, pseudo);
+        await db.saveOC(pseudo, oc);
+        return out;
+    }
+
+    // ---- Pause : sauvegarde et quitte ----
+    if (sub === "pause") {
+        await db.saveOC(pseudo, oc);
+        return { text: `⏸️ *Histoire mise en pause et sauvegardée.*\n${oc.identite.prenom} t'attendra à *${oc.lieuNom || "Konoha"}*.\n\n▶️ Reviens quand tu veux avec *!histoire resume*.` };
     }
 
     // ---- Menu / reprise ----
-    if (sub === "" || sub === "reprendre") {
+    if (sub === "" || sub === "reprendre" || sub === "resume") {
         const dernier = oc.journal?.[0]?.txt || "Ton aventure continue.";
         return { text: `${render.hud(oc)}\n\n🕮 _${dernier}_\n\nQue veux-tu faire ?\n▫️ explorer · voyager <lieu> · carte\n▫️ mission · entrainer <type>\n▫️ fiche · jutsu · sac · boutique\n▫️ manger · dormir · relations\n_(!histoire aide pour tout voir)_` };
     }
@@ -195,6 +216,7 @@ async function run(ctx) {
             const narr = await withNarration(oc, `Le joueur est officiellement promu au rang de ${pr.rang.nom}.`, { consigne: "Décris la cérémonie/reconnaissance de promotion." });
             return { text: `${narr}\n\n🎖️ *PROMOTION !* Tu es désormais *${pr.rang.nom}* (+${pr.rang.points} points, PV et chakra en hausse).${tick(oc)}` };
         }
+        case "coop": out = await doCoop(oc, arg, pseudo); if (out.save !== false) await db.saveOC(pseudo, oc); return out;
         case "sauvegarde": case "save": await db.saveOC(pseudo, oc); return { text: "💾 Partie sauvegardée." };
         case "abandonner": { const r = missions.abandonner(oc); await db.saveOC(pseudo, oc); return { text: r.ok ? `🏳️ Mission « ${r.titre} » abandonnée (réputation -5).` : `❌ ${r.error}` }; }
         case "difficulte": case "difficulté": {
@@ -251,6 +273,162 @@ async function doCombat(oc, sub, arg) {
     return { text: `${narr}\n\n${renderCombat(oc, r.log)}` };
 }
 
+// ---- Fins de combat réutilisables ----
+async function endVictory(oc, enemy, narr) {
+    const enemyNom = enemy.nom;
+    const rec = combat.applyVictory(oc, enemy);
+    profileMod.journal(oc, `Victoire contre ${enemyNom}.`);
+    let msg = `🏆 *VICTOIRE* contre ${enemyNom} !\n+${rec.ryo}💴 · +${rec.xp} XP` + (rec.items.length ? ` · butin : ${rec.items.map(i => ITEMS[i]?.nom || i).join(", ")}` : "");
+    if (rec.lvl.niveauxGagnes.length) msg += `\n⬆️ Niveau ${rec.lvl.niveau} atteint !`;
+    if (oc._missionCombat && oc.quete) { const mrec = missions.recompenser(oc, oc.quete); msg += `\n\n🎉 *MISSION ACCOMPLIE* : +${mrec.ryo}💴 · +${mrec.xp} XP`; }
+    oc._missionCombat = false;
+    return { text: `${narr ? `🎴 ${narr}\n\n` : ""}${msg}${tick(oc)}` };
+}
+async function endDefeat(oc, enemy, narr) {
+    oc._missionCombat = false;
+    const d = combat.applyDefeat(oc);
+    profileMod.journal(oc, `Défaite contre ${enemy.nom}.`);
+    if (d.mort) return { text: `${narr ? `🎴 ${narr}\n\n` : ""}💀 *${oc.identite.prenom} est tombé au combat.* (mort permanente activée)` };
+    return { text: `${narr ? `🎴 ${narr}\n\n` : ""}💫 KO ! Tu te réveilles à l'hôpital de Konoha (-${d.perteRyo}💴).${tick(oc)}` };
+}
+
+// ---- Combat par PAVÉ (résolu par l'IA, encadré par le moteur) ----
+async function doCombatIA(oc, pave, pseudo) {
+    const enemy = oc.combat.enemy;
+    const usage = arsenal.detect(oc, pave);
+    const r = await combatgm.resolve(oc, enemy, pave, usage);
+    oc.combat.tour = (oc.combat.tour || 1) + 1;
+
+    // Fin : ennemi vaincu (gère les phases de boss)
+    if (enemy.pv <= 0) {
+        if (enemy.isBoss && enemy.phase < enemy.phases) {
+            enemy.phase += 1; enemy.pv = Math.round(enemy.pvMax * 0.7); enemy.chakra = enemy.chakraMax;
+            const extra = `\n\n💢 ${enemy.nom} se relève — PHASE ${enemy.phase} ! Il puise dans de nouvelles forces.`;
+            return { text: `🎴 ${r.narration}${extra}\n\n${renderCombatIA(oc, r)}` };
+        }
+        return endVictory(oc, enemy, r.narration);
+    }
+    // Fin : joueur KO
+    if (oc.vitals.pv <= 0) return endDefeat(oc, enemy, r.narration);
+
+    return { text: `🎴 ${r.narration}\n\n${renderCombatIA(oc, r)}` };
+}
+
+function renderCombatIA(oc, r) {
+    const e = oc.combat.enemy;
+    const lignes = [
+        `⚔️ *COMBAT — tour ${oc.combat.tour}*  (${oc.difficulte})`,
+        `🆚 ${e.nom}  ❤️ ${render.bar(e.pv, e.pvMax)} ${e.pv}/${e.pvMax}`,
+        `👤 ❤️ ${oc.vitals.pv}/${oc.stats.pvMax}  🔵 ${oc.vitals.chakra}/${oc.stats.chakraMax}  ⚡ ${oc.vitals.endurance}/${oc.stats.enduranceMax}`,
+    ];
+    const dtl = [];
+    if (r.dP) dtl.push(`💥 -${r.dP} à l'ennemi`);
+    if (r.dS) dtl.push(`🩸 -${r.dS} pour toi`);
+    if (r.chakraUsed) dtl.push(`🔵 -${r.chakraUsed} chakra`);
+    if (r.itemsUsed?.length) dtl.push(`🎒 ${r.itemsUsed.join(", ")}`);
+    if (r.fizzles?.length) dtl.push(`⚠️ chakra insuffisant : ${r.fizzles.join(", ")}`);
+    if (r.invalid?.length) dtl.push(`🚫 non possédé (ignoré) : ${r.invalid.join(", ")}`);
+    if (r.immobile) dtl.push(`😵 tu es resté immobile/à découvert !`);
+    if (dtl.length) lignes.push("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", dtl.join("  ·  "));
+    lignes.push("▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔", "✍️ Écris ta prochaine action (jutsu, taijutsu, ruse, objet...) · *fuir* pour tenter de partir");
+    return lignes.join("\n");
+}
+
+// ============================================================
+//  COOP — équipe + combat de boss partagé
+// ============================================================
+async function doCoop(oc, arg, pseudo) {
+    const [action, ...rest] = arg.split(/\s+/);
+    const a = (action || "").toLowerCase();
+    const suite = rest.join(" ");
+
+    if (!a || a === "info") {
+        const p = await coop.party(pseudo);
+        if (!p) return { text: "🤝 *COOP* — tu n'es dans aucune équipe.\n▫️ *!histoire coop creer* — créer une escouade (donne un code)\n▫️ *!histoire coop rejoindre <code>* — rejoindre\n_Puis affrontez un boss ensemble : *!histoire coop combat*_", save: false };
+        const combatTxt = p.combat ? `\n⚔️ Combat en cours : *${p.combat.enemy.nom}* (${p.combat.enemy.pv}/${p.combat.enemy.pvMax} PV)` : "";
+        return { text: `🤝 *ÉQUIPE ${p.code}*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👑 Chef : ${p.chef}\n🥷 Membres (${p.membres.length}/${coop.MAX}) : ${p.membres.join(", ")}${combatTxt}\n\n_Boss ensemble : *!histoire coop combat* · quitter : *!histoire coop quitter*_`, save: false };
+    }
+    if (a === "creer" || a === "créer" || a === "create") {
+        const r = await coop.create(pseudo, oc.lieu);
+        if (!r.ok) return { text: `❌ ${r.error}`, save: false };
+        return { text: `✅ *Équipe créée !* Code : *${r.party.code}*\nPartage ce code : les autres tapent *!histoire coop rejoindre ${r.party.code}*.\nQuand vous êtes prêts : *!histoire coop combat*.`, save: false };
+    }
+    if (a === "rejoindre" || a === "join") {
+        if (!suite) return { text: "Usage : *!histoire coop rejoindre <code>*", save: false };
+        const r = await coop.join(pseudo, suite.toUpperCase());
+        if (!r.ok) return { text: `❌ ${r.error}`, save: false };
+        return { text: `✅ Tu as rejoint l'équipe *${r.party.code}* !\nMembres : ${r.party.membres.join(", ")}.\n_Boss ensemble : *!histoire coop combat*._`, save: false };
+    }
+    if (a === "quitter" || a === "leave") {
+        const r = await coop.leave(pseudo);
+        return { text: r.ok ? "👋 Tu as quitté l'équipe." : `❌ ${r.error}`, save: false };
+    }
+    if (a === "combat" || a === "boss") {
+        const p = await coop.party(pseudo);
+        if (!p) return { text: "Tu n'es dans aucune équipe (*!histoire coop creer*).", save: false };
+        if (p.combat) return { text: `⚔️ Un combat est déjà en cours contre *${p.combat.enemy.nom}*. Écris ton action !`, save: false };
+        // Boss mis à l'échelle du nombre de membres.
+        const base = BOSSES.chef_bandits;
+        const n = p.membres.length;
+        const def = { ...base, pv: Math.round(base.pv * (1 + (n - 1) * 0.8)), butin: { ryo: base.butin.ryo, xp: base.butin.xp, items: base.butin.items } };
+        await coop.setCombat(p, combat.makeEnemy(def));
+        return { text: `🐉 *BOSS COOP — ${def.nom}* apparaît devant l'équipe *${p.code}* !\n❤️ ${def.pv} PV (mis à l'échelle pour ${n} ninja${n > 1 ? "s" : ""}).\n\n✍️ Chaque membre écrit son action : *!histoire <ton pavé>*.\n_Vous partagez le même ennemi — coordonnez-vous !_`, save: false };
+    }
+    return { text: "Usage : *!histoire coop* [creer|rejoindre <code>|combat|quitter|info]", save: false };
+}
+
+async function doCoopCombat(oc, pave, pseudo, party) {
+    if (party.combat.downed?.includes(pseudo)) {
+        return { text: "💫 Tu es KO pour ce combat. Attends que ton équipe termine (ou qu'elle gagne pour te relever)." };
+    }
+    const enemy = party.combat.enemy;
+    const usage = arsenal.detect(oc, pave);
+    const r = await combatgm.resolve(oc, enemy, pave, usage);
+    party.combat.tour = (party.combat.tour || 1) + 1;
+
+    // Victoire d'équipe
+    if (enemy.pv <= 0) {
+        const butin = enemy.butin || { ryo: 500, xp: 300, items: [] };
+        const recompenses = [];
+        for (const m of party.membres) {
+            const moc = await db.getOC(m);
+            if (!moc || party.combat.downed?.includes(m)) continue;
+            moc.ryo = (moc.ryo || 0) + butin.ryo;
+            moc.xpCarriere = (moc.xpCarriere || 0) + butin.xp;
+            progression.addXP(moc, butin.xp);
+            profileMod.journal(moc, `Boss coop vaincu : ${enemy.nom}.`);
+            await db.saveOC(m, moc);
+            recompenses.push(m);
+        }
+        await coop.clearCombat(party);
+        await db.saveOC(pseudo, oc);
+        return { text: `🎴 ${r.narration}\n\n🏆 *${enemy.nom} est terrassé par l'équipe ${party.code} !*\n🎁 Chacun reçoit +${butin.ryo}💴 · +${butin.xp} XP\n🥷 ${recompenses.join(", ")}` };
+    }
+
+    // Membre KO
+    if (oc.vitals.pv <= 0) {
+        party.combat.downed = party.combat.downed || [];
+        if (!party.combat.downed.includes(pseudo)) party.combat.downed.push(pseudo);
+        combat.applyDefeat(oc);
+        await coop.saveParty(party);
+        await db.saveOC(pseudo, oc);
+        // toute l'équipe KO ?
+        if (party.combat.downed.length >= party.membres.length) {
+            await coop.clearCombat(party);
+            return { text: `🎴 ${r.narration}\n\n💀 *L'équipe est vaincue...* ${enemy.nom} l'emporte. Repartez plus forts !` };
+        }
+        return { text: `🎴 ${r.narration}\n\n💫 *${oc.identite.prenom} est KO !* Ses coéquipiers doivent finir le combat.` };
+    }
+
+    await coop.saveParty(party);
+    await db.saveOC(pseudo, oc);
+    const dtl = [];
+    if (r.dP) dtl.push(`💥 -${r.dP} au boss`);
+    if (r.dS) dtl.push(`🩸 -${r.dS} pour toi`);
+    if (r.immobile) dtl.push("😵 immobile !");
+    return { text: `🎴 ${r.narration}\n\n🐉 *${enemy.nom}* ❤️ ${render.bar(enemy.pv, enemy.pvMax)} ${enemy.pv}/${enemy.pvMax}\n👤 ${oc.identite.prenom} ❤️ ${oc.vitals.pv}/${oc.stats.pvMax} 🔵 ${oc.vitals.chakra}\n${dtl.join(" · ")}\n_L'équipe continue — écrivez vos actions !_` };
+}
+
 function renderCombat(oc, log) {
     const e = oc.combat.enemy;
     return [
@@ -260,7 +438,8 @@ function renderCombat(oc, log) {
         "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
         ...log.map(l => "• " + l),
         "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
-        "Actions : attaquer · jutsu <nom> · defendre · esquiver · objet <obj> · analyser · fuir",
+        "✍️ *Écris ton action librement* (ex : _!histoire je fonce et lance un Katon Goukakyuu vers ses jambes_).",
+        "Utilise tes jutsu/objets réels — sinon tu restes exposé. · *fuir* pour partir · *pause* pour sauver & quitter",
     ].join("\n");
 }
 
@@ -483,7 +662,9 @@ function aide() {
         "— *rang* (passer un grade) · *relations* · *reputation*",
         "— *difficulte <mode>* · *sauvegarde* · *supprimer*",
         "",
-        "⚔️ *En combat* : attaquer · jutsu <nom> · defendre · esquiver · objet <obj> · analyser · fuir",
+        "⚔️ *En combat* : écris ton PAVÉ librement (utilise tes vrais jutsu/objets) · *fuir* · *pause*",
+        "⏸️ *pause* / ▶️ *resume* — sauver & quitter / reprendre",
+        "🤝 *coop* creer|rejoindre <code>|combat|quitter — jouer à plusieurs (boss partagé)",
         "Clans : " + Object.keys(CLANS).filter(c => c !== "sans-clan").join(", "),
     ].join("\n");
 }
