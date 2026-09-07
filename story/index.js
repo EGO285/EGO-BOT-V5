@@ -61,6 +61,32 @@ const KNOWN_SUBS = new Set([
     "commencer", "start", "creer", "créer", "nouveau",
 ]);
 
+// Sous-commandes déplacées vers leur PROPRE commande (plus de "!histoire X").
+// Sert à rediriger gentiment si quelqu'un tape encore l'ancienne forme.
+const MOVED = {
+    fiche: "!perso", perso: "!perso", stats: "!ameliorer",
+    jutsu: "!techniques", techniques: "!techniques",
+    sac: "!inventaire", inventaire: "!inventaire",
+    objet: "!objet", utiliser: "!objet",
+    carte: "!lieux", map: "!lieux",
+    explorer: "!explorer",
+    aventurer: "!aventurer", frontiere: "!aventurer", "frontière": "!aventurer", inconnu: "!aventurer",
+    voyager: "!voyager", aller: "!voyager",
+    mission: "!mission",
+    entrainer: "!entrainer", "entraîner": "!entrainer",
+    apprendre: "!apprendre",
+    manger: "!manger", boire: "!boire", dormir: "!dormir",
+    boutique: "!echoppe", shop: "!echoppe", acheter: "!echoppe acheter", vendre: "!echoppe vendre",
+    relations: "!relations", reputation: "!reputation", "réputation": "!reputation",
+    rang: "!promotion", examen: "!promotion", promotion: "!promotion",
+    coop: "!coop", principale: "!principale", canon: "!principale", story: "!principale", campagne: "!principale",
+    sauvegarde: "!sauvegarde", save: "!sauvegarde",
+    abandonner: "!abandonner",
+    difficulte: "!difficulte", "difficulté": "!difficulte",
+    mortpermanente: "!mortpermanente",
+    aide: "!guide",
+};
+
 // Résout l'OC lié à ce joueur WhatsApp.
 async function resolvePseudo(sender) { return db.get(BIND(sender)); }
 
@@ -116,7 +142,7 @@ async function run(ctx) {
         await db.set(BIND(sender), fiche.pseudo);
         await db.pushLog(fiche.pseudo, "create", `OC créé (clan ${oc.identite.clan})`);
         const intro = await withNarration(oc, `Le personnage ${oc.identite.prenom} du clan ${oc.identite.clan} entre à l'académie de Konoha, plein d'ambition.`, { lieuNom: "Académie de Konoha", consigne: "Accueille le joueur dans le monde et donne-lui envie de jouer." });
-        return { text: `✅ *Personnage créé !*\n\n${intro}\n\n${render.fiche(oc)}\n\n_Tape *!histoire* pour voir tes options, ou *!histoire aide*._` };
+        return { text: `✅ *Personnage créé !*\n\n${intro}\n\n${render.fiche(oc)}\n\n_Tape *!histoire* pour voir tes options, ou *!guide*._` };
     }
 
     // Résoudre le personnage courant
@@ -137,7 +163,7 @@ async function run(ctx) {
                 return { text: `📇 Fiche *${fiche.pseudo}* trouvée, mais elle n'a pas encore de personnage Histoire.\n👉 *!histoire commencer ${fiche.pseudo}* pour créer ton ninja.` };
             }
         } else {
-            return { text: "🍥 *SHINOBI STORM — MODE HISTOIRE*\n\nQuelle est ta fiche ? Écris ton pseudo pour la lier :\n👉 *!histoire <ton pseudo>*\n\n• Nouveau ? crée un ninja : *!histoire commencer <ton pseudo>*\n• Pas de fiche ? *!new <pseudo>* d'abord.\n_Aide complète : !histoire aide_" };
+            return { text: "🍥 *SHINOBI STORM — MODE HISTOIRE*\n\nQuelle est ta fiche ? Écris ton pseudo pour la lier :\n👉 *!histoire <ton pseudo>*\n\n• Nouveau ? crée un ninja : *!histoire commencer <ton pseudo>*\n• Pas de fiche ? *!new <pseudo>* d'abord.\n_Aide complète : !guide_" };
         }
     }
     let oc = await db.getOC(pseudo);
@@ -149,11 +175,17 @@ async function run(ctx) {
     // ---- COOP : combat de boss PARTAGÉ en cours ----
     const monEquipe = await coop.party(pseudo);
     const infoSubs = ["coop", "fiche", "perso", "sac", "inventaire", "jutsu", "techniques", "aide", "stats", "pause", "resume", ""];
-    if (monEquipe && monEquipe.combat && !infoSubs.includes(sub)) {
-        const pave = `${sub} ${arg}`.trim();
-        out = await doCoopCombat(oc, pave, pseudo, monEquipe);
-        await db.saveOC(pseudo, oc);
-        return out;
+    if (monEquipe && monEquipe.combat) {
+        // Une commande dédiée d'info reste consultable ; toute autre commande dédiée est bloquée.
+        if (ctx._fromSub && !infoSubs.includes(sub)) {
+            return { text: `⚔️ *Combat d'équipe en cours* contre *${monEquipe.combat.enemy.nom}* !\nÉcris ton action de combat : *!histoire <ton pavé>*\n(_infos autorisées : !perso · !techniques · !inventaire_)` };
+        }
+        if (!ctx._fromSub && !infoSubs.includes(sub)) {
+            const pave = `${sub} ${arg}`.trim();
+            out = await doCoopCombat(oc, pave, pseudo, monEquipe);
+            await db.saveOC(pseudo, oc);
+            return out;
+        }
     }
 
     // ---- COMBAT PAR PAVÉ (prioritaire si combat solo en cours) ----
@@ -164,7 +196,14 @@ async function run(ctx) {
         if (["statut", "etat", "état", "combat"].includes(sub) && !arg) {
             return { text: renderCombat(oc, [`À toi de jouer ! Écris ton action (ton pavé RP).`]) };
         }
-        // Tout le reste = PAVÉ LIBRE du joueur
+        // Commandes dédiées pendant le combat : seules les infos sont consultables.
+        if (ctx._fromSub) {
+            if (["fiche", "perso"].includes(sub)) return { text: render.fiche(oc) + tick(oc) };
+            if (["jutsu", "techniques"].includes(sub)) return { text: render.techniques(oc) };
+            if (["sac", "inventaire"].includes(sub)) return { text: render.inventaire(oc) };
+            return { text: `⚔️ Tu es en plein combat contre *${oc.combat.enemy.nom}* !\nÉcris ton action : *!histoire <ton pavé de combat>*\n(_ou *!histoire fuir* · *!histoire pause*_)` };
+        }
+        // Depuis !histoire : tout le texte libre = PAVÉ du joueur
         const pave = `${sub} ${arg}`.trim();
         if (!pave) return { text: renderCombat(oc, ["Décris ton action : *!histoire <ton pavé de combat>*"]) };
         out = await doCombatIA(oc, pave, pseudo);
@@ -181,7 +220,13 @@ async function run(ctx) {
     // ---- Menu / reprise ----
     if (sub === "" || sub === "reprendre" || sub === "resume") {
         const dernier = oc.journal?.[0]?.txt || "Ton aventure continue.";
-        return { text: `${render.hud(oc)}\n\n🕮 _${dernier}_\n\nQue veux-tu faire ?\n▫️ explorer · voyager <lieu> · carte\n▫️ mission · entrainer <type>\n▫️ fiche · jutsu · sac · boutique\n▫️ manger · dormir · relations\n_(!histoire aide pour tout voir)_` };
+        return { text: `${render.hud(oc)}\n\n🕮 _${dernier}_\n\nQue veux-tu faire ? (chaque action a sa commande)\n▫️ *!explorer* · *!voyager <lieu>* · *!lieux* · *!aventurer*\n▫️ *!mission* · *!entrainer <type>* · *!principale*\n▫️ *!perso* · *!techniques* · *!inventaire* · *!echoppe*\n▫️ *!manger* · *!dormir* · *!relations* · *!coop*\n\n⚔️ En combat : écris ton action avec *!histoire <ton pavé>*\n📜 Liste complète : *!guide*` };
+    }
+
+    // ---- !histoire est réservé au combat (pavé), au lancement, à la pause et à la suppression.
+    //      Toute autre action a désormais sa propre commande. ----
+    if (!ctx._fromSub && MOVED[sub]) {
+        return { text: `➡️ Cette action a maintenant sa propre commande : *${MOVED[sub]}*\n\n_*!histoire* ne sert plus qu'à : jouer tes actions de combat, lancer/reprendre l'aventure, la mettre en pause (*!histoire pause* / *!histoire resume*) et supprimer ton perso (*!histoire supprimer*)._\n📜 Toutes les commandes : *!guide*` };
     }
 
     switch (sub) {
@@ -193,7 +238,7 @@ async function run(ctx) {
         case "jutsu": case "techniques": return { text: render.techniques(oc) };
         case "sac": case "inventaire": return { text: render.inventaire(oc) };
         case "objet": case "utiliser": {
-            const id = resolveItem(arg); if (!id) return { text: "Quel objet ? *!histoire objet <nom>* (vois !histoire sac)." };
+            const id = resolveItem(arg); if (!id) return { text: "Quel objet ? *!objet <nom>* (vois !inventaire)." };
             const r = inventory.useItem(oc, id); await db.saveOC(pseudo, oc);
             return { text: r.ok ? `✅ ${r.nom} utilisé (${r.effets.join(", ") || "aucun effet"}).${tick(oc)}` : `❌ ${r.error}` };
         }
@@ -202,7 +247,7 @@ async function run(ctx) {
             const ici = worldmap.resolve(map, oc.lieu);
             const dest = worldmap.destinations(map, oc.lieu).map(d => `• *${d.id}* — ${d.nom} ${d.genere ? "✨" : ""}(${d.heures}h, danger ${d.danger})`).join("\n") || "_aucune_";
             const desc = ici?.description ? `\n_${ici.description}_` : "";
-            return { text: `🗺️ *CARTE* — tu es à *${ici ? ici.nom : oc.lieu}*${desc}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\nDestinations :\n${dest}\n\n👉 *!histoire voyager <lieu>*\n🧭 *!histoire aventurer* — partir vers l'inconnu (génère une nouvelle zone)` };
+            return { text: `🗺️ *CARTE* — tu es à *${ici ? ici.nom : oc.lieu}*${desc}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\nDestinations :\n${dest}\n\n👉 *!voyager <lieu>*\n🧭 *!aventurer* — partir vers l'inconnu (génère une nouvelle zone)` };
         }
         case "explorer": out = await doExplore(oc, pseudo); await db.saveOC(pseudo, oc); return out;
         case "aventurer": case "frontiere": case "frontière": case "inconnu": out = await doAventurer(oc, pseudo); await db.saveOC(pseudo, oc); return out;
@@ -245,7 +290,7 @@ async function run(ctx) {
             if (!/confirmer|confirm|oui/i.test(arg)) return { text: "⚠️ Ça effacera DÉFINITIVEMENT ton personnage.\nTape *!histoire supprimer confirmer* pour valider." };
             await db.delOC(pseudo); await db.del(BIND(sender)); return { text: "🗑️ Personnage supprimé. *!histoire commencer* pour repartir." };
         default:
-            return { text: `❓ Sous-commande inconnue : *${sub}*.\nTape *!histoire aide* pour la liste.` };
+            return { text: `❓ Sous-commande inconnue : *${sub}*.\nTape *!guide* pour la liste.` };
     }
 }
 
@@ -253,7 +298,7 @@ async function run(ctx) {
 async function doCombat(oc, sub, arg) {
     const enemyNom = oc.combat.enemy.nom;
     let param = null;
-    if (sub === "jutsu") { param = resolveJutsu(oc, arg); if (!param) return { text: `❌ Tu ne connais pas « ${arg} ». Vois !histoire jutsu.` }; }
+    if (sub === "jutsu") { param = resolveJutsu(oc, arg); if (!param) return { text: `❌ Tu ne connais pas « ${arg} ». Vois !techniques.` }; }
     if (sub === "objet") { param = resolveItem(arg); if (!param) return { text: "Quel objet ?" }; }
     if (sub === "défendre") sub = "defendre";
 
@@ -314,7 +359,7 @@ async function endVictory(oc, enemy, narr) {
         const chap = CHAPTERS[oc.campagne.i];
         if (chap && chap.recompense) { grantReward(oc, chap.recompense); msg += `\n\n🎬 *CHAPITRE ACCOMPLI* : ${chap.titre} (+${chap.recompense.xp} XP)`; }
         oc.campagne.i += 1;
-        msg += oc.campagne.i < CHAPTERS.length ? `\n➡️ Suite de l'histoire : *!histoire principale*` : `\n🏆 *Tu as terminé TOUTE l'Histoire Principale !* Légende éternelle.`;
+        msg += oc.campagne.i < CHAPTERS.length ? `\n➡️ Suite de l'histoire : *!principale*` : `\n🏆 *Tu as terminé TOUTE l'Histoire Principale !* Légende éternelle.`;
     }
     return { text: `${narr ? `🎴 ${narr}\n\n` : ""}${msg}${tick(oc)}` };
 }
@@ -340,7 +385,7 @@ async function doPrincipale(oc, arg, pseudo) {
             if (oc.campagne.i >= total) return { text: "🏆 *HISTOIRE PRINCIPALE TERMINÉE* — Légende éternelle ! 🍥" };
             chap = CHAPTERS[oc.campagne.i];
         } else {
-            return { text: `⚔️ Ce chapitre est un combat. Lance-le : *!histoire principale combat*.` };
+            return { text: `⚔️ Ce chapitre est un combat. Lance-le : *!principale combat*.` };
         }
     }
 
@@ -357,8 +402,8 @@ async function doPrincipale(oc, arg, pseudo) {
     // Affichage du chapitre courant
     const narr = await withNarration(oc, `[${chap.arc}] ${chap.titre}. ${chap.texte}`, { consigne: "Raconte ce moment culte de Naruto en y intégrant le personnage du joueur, de façon immersive et fidèle à l'univers." });
     const suite = chap.type === "scene"
-        ? "▶️ *!histoire principale suivant* pour continuer l'histoire"
-        : `⚔️ *!histoire principale combat* pour affronter *${(BOSSES[chap.ennemi] || {}).nom || chap.ennemi}*`;
+        ? "▶️ *!principale suivant* pour continuer l'histoire"
+        : `⚔️ *!principale combat* pour affronter *${(BOSSES[chap.ennemi] || {}).nom || chap.ennemi}*`;
     return { text: `🎬 *HISTOIRE PRINCIPALE*  —  Chapitre ${oc.campagne.i + 1}/${total}\n🏷️ Arc : ${chap.arc}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n📖 *${chap.titre}*\n\n${narr}\n\n${suite}` };
 }
 
@@ -433,20 +478,20 @@ async function doCoop(oc, arg, pseudo) {
 
     if (!a || a === "info") {
         const p = await coop.party(pseudo);
-        if (!p) return { text: "🤝 *COOP* — tu n'es dans aucune équipe.\n▫️ *!histoire coop creer* — créer une escouade (donne un code)\n▫️ *!histoire coop rejoindre <code>* — rejoindre\n_Puis affrontez un boss ensemble : *!histoire coop combat*_", save: false };
+        if (!p) return { text: "🤝 *COOP* — tu n'es dans aucune équipe.\n▫️ *!coop creer* — créer une escouade (donne un code)\n▫️ *!coop rejoindre <code>* — rejoindre\n_Puis affrontez un boss ensemble : *!coop combat*_", save: false };
         const combatTxt = p.combat ? `\n⚔️ Combat en cours : *${p.combat.enemy.nom}* (${p.combat.enemy.pv}/${p.combat.enemy.pvMax} PV)` : "";
-        return { text: `🤝 *ÉQUIPE ${p.code}*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👑 Chef : ${p.chef}\n🥷 Membres (${p.membres.length}/${coop.MAX}) : ${p.membres.join(", ")}${combatTxt}\n\n_Boss ensemble : *!histoire coop combat* · quitter : *!histoire coop quitter*_`, save: false };
+        return { text: `🤝 *ÉQUIPE ${p.code}*\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👑 Chef : ${p.chef}\n🥷 Membres (${p.membres.length}/${coop.MAX}) : ${p.membres.join(", ")}${combatTxt}\n\n_Boss ensemble : *!coop combat* · quitter : *!coop quitter*_`, save: false };
     }
     if (a === "creer" || a === "créer" || a === "create") {
         const r = await coop.create(pseudo, oc.lieu);
         if (!r.ok) return { text: `❌ ${r.error}`, save: false };
-        return { text: `✅ *Équipe créée !* Code : *${r.party.code}*\nPartage ce code : les autres tapent *!histoire coop rejoindre ${r.party.code}*.\nQuand vous êtes prêts : *!histoire coop combat*.`, save: false };
+        return { text: `✅ *Équipe créée !* Code : *${r.party.code}*\nPartage ce code : les autres tapent *!coop rejoindre ${r.party.code}*.\nQuand vous êtes prêts : *!coop combat*.`, save: false };
     }
     if (a === "rejoindre" || a === "join") {
-        if (!suite) return { text: "Usage : *!histoire coop rejoindre <code>*", save: false };
+        if (!suite) return { text: "Usage : *!coop rejoindre <code>*", save: false };
         const r = await coop.join(pseudo, suite.toUpperCase());
         if (!r.ok) return { text: `❌ ${r.error}`, save: false };
-        return { text: `✅ Tu as rejoint l'équipe *${r.party.code}* !\nMembres : ${r.party.membres.join(", ")}.\n_Boss ensemble : *!histoire coop combat*._`, save: false };
+        return { text: `✅ Tu as rejoint l'équipe *${r.party.code}* !\nMembres : ${r.party.membres.join(", ")}.\n_Boss ensemble : *!coop combat*._`, save: false };
     }
     if (a === "quitter" || a === "leave") {
         const r = await coop.leave(pseudo);
@@ -454,7 +499,7 @@ async function doCoop(oc, arg, pseudo) {
     }
     if (a === "combat" || a === "boss") {
         const p = await coop.party(pseudo);
-        if (!p) return { text: "Tu n'es dans aucune équipe (*!histoire coop creer*).", save: false };
+        if (!p) return { text: "Tu n'es dans aucune équipe (*!coop creer*).", save: false };
         if (p.combat) return { text: `⚔️ Un combat est déjà en cours contre *${p.combat.enemy.nom}*. Écris ton action !`, save: false };
         // Boss mis à l'échelle du nombre de membres.
         const base = BOSSES.chef_bandits;
@@ -463,7 +508,7 @@ async function doCoop(oc, arg, pseudo) {
         await coop.setCombat(p, combat.makeEnemy(def));
         return { text: `🐉 *BOSS COOP — ${def.nom}* apparaît devant l'équipe *${p.code}* !\n❤️ ${def.pv} PV (mis à l'échelle pour ${n} ninja${n > 1 ? "s" : ""}).\n\n✍️ Chaque membre écrit son action : *!histoire <ton pavé>*.\n_Vous partagez le même ennemi — coordonnez-vous !_`, save: false };
     }
-    return { text: "Usage : *!histoire coop* [creer|rejoindre <code>|combat|quitter|info]", save: false };
+    return { text: "Usage : *!coop* [creer|rejoindre <code>|combat|quitter|info]", save: false };
 }
 
 async function doCoopCombat(oc, pave, pseudo, party) {
@@ -547,9 +592,9 @@ async function doExplore(oc, pseudo) {
 }
 
 async function doTravel(oc, destArg, pseudo) {
-    if (!destArg) return { text: "Où ? *!histoire voyager <lieu>* (vois !histoire carte)." };
+    if (!destArg) return { text: "Où ? *!voyager <lieu>* (vois !lieux)." };
     const map = await worldmap.load(pseudo);
-    if ((oc.besoins?.fatigue || 0) > 90) return { text: "😩 Trop épuisé pour voyager. Repose-toi (!histoire dormir)." };
+    if ((oc.besoins?.fatigue || 0) > 90) return { text: "😩 Trop épuisé pour voyager. Repose-toi (!dormir)." };
     const r = worldmap.travel(oc, map, destArg.toLowerCase());
     if (!r.ok) return { text: `❌ ${r.error}` };
     oc.lieuNom = r.dest ? r.dest.nom : oc.lieu;
@@ -575,7 +620,7 @@ async function doAventurer(oc, pseudo) {
         return handleEvent(oc, ev, arrivee);
     }
     const narr = await withNarration(oc, arrivee, { lieuNom: r.loc.nom, consigne: "Fais découvrir ce nouveau lieu de façon immersive et donne envie de l'explorer." });
-    return { text: `🧭 *NOUVELLE ZONE DÉCOUVERTE* ✨\n\n${narr}\n\n📍 *${r.loc.nom}* (${r.loc.type}, danger ${r.loc.danger})${r.loc.services.length ? `\n🏪 Services : ${r.loc.services.join(", ")}` : ""}\n_Ce lieu est sauvegardé : tu pourras y revenir (!histoire carte)._${tick(oc)}` };
+    return { text: `🧭 *NOUVELLE ZONE DÉCOUVERTE* ✨\n\n${narr}\n\n📍 *${r.loc.nom}* (${r.loc.type}, danger ${r.loc.danger})${r.loc.services.length ? `\n🏪 Services : ${r.loc.services.join(", ")}` : ""}\n_Ce lieu est sauvegardé : tu pourras y revenir (!lieux)._${tick(oc)}` };
 }
 
 // Traite un événement de rencontre (combat / marchand / trésor / etc.).
@@ -594,7 +639,7 @@ async function handleEvent(oc, ev, prefixe) {
         return { text: `${narr}\n\n💰 +${ryo}💴${tick(oc)}` };
     }
     if (ev.type === "marchand") {
-        return { text: `${prefixe}\n🧺 ${ev.txt}\nTu peux commercer : *!histoire boutique marche_noir*${tick(oc)}` };
+        return { text: `${prefixe}\n🧺 ${ev.txt}\nTu peux commercer : *!echoppe marche_noir*${tick(oc)}` };
     }
     // rencontre / mystere : narration pure
     const narr = await withNarration(oc, `${prefixe} ${ev.txt}`, { consigne: "Fais-en un petit moment d'histoire vivant." });
@@ -610,7 +655,7 @@ function npcAsEnemy(id) {
 
 async function doMission(oc, arg) {
     if (!arg) {
-        if (oc.quete) return { text: `📜 *MISSION EN COURS*\n${oc.quete.titre} [${oc.quete.rang}] — ${oc.quete.desc}\nLieu : ${LOCATIONS[oc.quete.lieu]?.nom || oc.quete.lieu}\n\n👉 *!histoire mission ${oc.quete.ennemi ? "combattre" : "finir"}*` };
+        if (oc.quete) return { text: `📜 *MISSION EN COURS*\n${oc.quete.titre} [${oc.quete.rang}] — ${oc.quete.desc}\nLieu : ${LOCATIONS[oc.quete.lieu]?.nom || oc.quete.lieu}\n\n👉 *!mission ${oc.quete.ennemi ? "combattre" : "finir"}*` };
         const dispo = missions.disponibles(oc);
         // Échantillon de 10 missions (avec leur numéro réel), renouvelé à chaque appel.
         const echantillon = dispo.map((m, i) => [i, m])
@@ -618,12 +663,12 @@ async function doMission(oc, arg) {
             .sort((a, b) => a[0] - b[0]);
         const l = echantillon.map(([i, m]) => `${i + 1}. [${m.rang}] *${m.titre}* — ${m.desc} _(${m.recompense.ryo}💴${m.ennemi ? " ⚔️" : ""})_`).join("\n");
         const reste = dispo.length - echantillon.length;
-        return { text: `📋 *MISSIONS DISPONIBLES* — classe *${oc.identite.rang}*\n_(${dispo.length} au total)_\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${l}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👉 *!histoire mission <numéro>* pour accepter${reste > 0 ? `\n🔄 refais *!histoire mission* pour d'autres propositions (${reste} de plus)` : ""}` };
+        return { text: `📋 *MISSIONS DISPONIBLES* — classe *${oc.identite.rang}*\n_(${dispo.length} au total)_\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${l}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👉 *!mission <numéro>* pour accepter${reste > 0 ? `\n🔄 refais *!mission* pour d'autres propositions (${reste} de plus)` : ""}` };
     }
-    if (/^\d+$/.test(arg)) { const r = missions.accepter(oc, parseInt(arg) - 1); return { text: r.ok ? `✅ Mission acceptée : *${r.mission.titre}*.\nRends-toi sur les lieux puis *!histoire mission ${r.mission.ennemi ? "combattre" : "finir"}*.` : `❌ ${r.error}` }; }
+    if (/^\d+$/.test(arg)) { const r = missions.accepter(oc, parseInt(arg) - 1); return { text: r.ok ? `✅ Mission acceptée : *${r.mission.titre}*.\nRends-toi sur les lieux puis *!mission ${r.mission.ennemi ? "combattre" : "finir"}*.` : `❌ ${r.error}` }; }
     if (arg === "combattre") {
         if (!oc.quete) return { text: "Aucune mission en cours." };
-        if (!oc.quete.ennemi) return { text: "Cette mission ne comporte pas d'ennemi. Fais *!histoire mission finir*." };
+        if (!oc.quete.ennemi) return { text: "Cette mission ne comporte pas d'ennemi. Fais *!mission finir*." };
         const def = { ...(BOSSES[oc.quete.ennemi] || npcAsEnemy(oc.quete.ennemi)) }; // clone (twist safe)
         let intro = `Tu affrontes l'objectif de ta mission : ${def.nom}.`;
         // Événement inattendu de mission
@@ -644,9 +689,9 @@ async function doMission(oc, arg) {
         const r = missions.resoudreNonCombat(oc);
         if (!r.ok) return { text: `❌ ${r.error}` };
         if (r.reussi) { profileMod.journal(oc, `Mission réussie : ${r.mission.titre}.`); return { text: `🎉 *MISSION RÉUSSIE* : ${r.mission.titre}\n+${r.rec.ryo}💴 · +${r.rec.xp} XP${r.rec.lvl.niveauxGagnes.length ? `\n⬆️ Niveau ${r.rec.lvl.niveau} !` : ""}${tick(oc)}` }; }
-        return { text: `😓 La mission « ${r.mission.titre} » échoue cette fois (réputation -2). Retente : *!histoire mission finir*.` };
+        return { text: `😓 La mission « ${r.mission.titre} » échoue cette fois (réputation -2). Retente : *!mission finir*.` };
     }
-    return { text: "Usage : *!histoire mission* · *mission <n>* · *mission combattre* · *mission finir*." };
+    return { text: "Usage : *!mission* · *mission <n>* · *mission combattre* · *mission finir*." };
 }
 
 // Fin de mission par combat : appelée quand un combat de mission est gagné.
@@ -661,13 +706,13 @@ async function doTrain(oc, arg) {
 
 function doEat(oc, arg) {
     const id = resolveItem(arg) || oc.inventaire.find(i => ITEMS[i.id]?.effet?.faim)?.id;
-    if (!id) return { text: "Tu n'as rien à manger. Achète de quoi au restaurant (*!histoire boutique restaurant*)." };
+    if (!id) return { text: "Tu n'as rien à manger. Achète de quoi au restaurant (*!echoppe restaurant*)." };
     const r = inventory.useItem(oc, id);
     return { text: r.ok ? `🍙 Tu manges : ${r.nom} (${r.effets.join(", ")}).` : `❌ ${r.error}` };
 }
 function doDrink(oc, arg) {
     const id = resolveItem(arg) || oc.inventaire.find(i => ITEMS[i.id]?.effet?.soif)?.id;
-    if (!id) return { text: "Tu n'as rien à boire (*!histoire boutique restaurant*)." };
+    if (!id) return { text: "Tu n'as rien à boire (*!echoppe restaurant*)." };
     const r = inventory.useItem(oc, id);
     return { text: r.ok ? `🥤 Tu bois : ${r.nom} (${r.effets.join(", ")}).` : `❌ ${r.error}` };
 }
@@ -689,17 +734,17 @@ function doShopList(oc, arg) {
     const dispo = svc.filter(s => SHOPS[s]);
     if (!arg) {
         if (!dispo.length) return "🚪 Aucune boutique ici.";
-        return `🏪 *BOUTIQUES ICI* (${nomLieu})\n` + dispo.map(s => `• ${s} — ${SHOPS[s].nom}`).join("\n") + `\n\n👉 *!histoire boutique <nom>* pour voir les articles.`;
+        return `🏪 *BOUTIQUES ICI* (${nomLieu})\n` + dispo.map(s => `• ${s} — ${SHOPS[s].nom}`).join("\n") + `\n\n👉 *!echoppe <nom>* pour voir les articles.`;
     }
     const shop = SHOPS[arg];
     if (!shop) return "Boutique inconnue.";
     if (!dispo.includes(arg)) return `Cette boutique n'est pas accessible ici (${nomLieu}).`;
     const items = shop.items.map(id => `• *${id}* — ${ITEMS[id].nom} : ${economy.prixAchat(oc, id)}💴`).join("\n");
-    return `🏪 *${shop.nom}*  ·  Ton or : ${oc.ryo}💴\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${items}\n\n👉 *!histoire acheter ${arg} <objet>*`;
+    return `🏪 *${shop.nom}*  ·  Ton or : ${oc.ryo}💴\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${items}\n\n👉 *!echoppe acheter ${arg} <objet>*`;
 }
 function doBuy(oc, arg) {
     const [shop, item, q] = arg.split(/\s+/);
-    if (!shop || !item) return { text: "Usage : *!histoire acheter <boutique> <objet> [quantité]*" };
+    if (!shop || !item) return { text: "Usage : *!echoppe acheter <boutique> <objet> [quantité]*" };
     const svc = oc.lieuServices || loc(oc.lieu)?.services || [];
     if (!svc.includes(shop)) return { text: "Cette boutique n'est pas ici." };
     const r = economy.acheter(oc, shop, item, parseInt(q) || 1);
@@ -708,7 +753,7 @@ function doBuy(oc, arg) {
 function doSell(oc, arg) {
     const [item, q] = arg.split(/\s+/);
     const id = resolveItem(item);
-    if (!id) return { text: "Usage : *!histoire vendre <objet> [quantité]*" };
+    if (!id) return { text: "Usage : *!echoppe vendre <objet> [quantité]*" };
     const r = economy.vendre(oc, id, parseInt(q) || 1);
     return { text: r.ok ? `💰 Vendu : ${r.item} (+${r.gain}💴).` : `❌ ${r.error}` };
 }
@@ -720,7 +765,7 @@ async function doLearn(oc, arg) {
     if (!arg) {
         if (!mentorsIci.length) return { text: "Aucun mentor ici. Cherche un sensei (Iruka, Kakashi, Jiraiya, Tsunade...)." };
         const l2 = mentorsIci.map(([id, n]) => `• ${n.nom} enseigne : ${n.peutEnseigner.map(j => JUTSU[j]?.nom || j).join(", ")}`).join("\n");
-        return { text: `📖 *MENTORS ICI*\n${l2}\n\n👉 *!histoire apprendre <technique>*` };
+        return { text: `📖 *MENTORS ICI*\n${l2}\n\n👉 *!apprendre <technique>*` };
     }
     const cible = arg.toLowerCase();
     for (const [id, n] of mentorsIci) {
@@ -755,25 +800,34 @@ function parseOpts(arg) {
 }
 function aide() {
     return [
-        "🍥 *MODE HISTOIRE — AIDE*",
+        "🍥 *SHINOBI STORM — GUIDE DES COMMANDES*",
         "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
-        "*!histoire commencer* — créer ton ninja (options: clan=, sexe=, prenom=)",
-        "*!histoire* — reprendre / voir ton état",
-        "— *fiche* · *stats <stat>* · *jutsu* · *sac*",
-        "— *carte* · *voyager <lieu>* · *explorer*",
-        "— *mission* · *mission <n>* · *mission combattre/finir*",
-        "— *entrainer <type>* · *apprendre <tech>*",
-        "— *manger* · *boire* · *dormir [h]*",
-        "— *boutique [nom]* · *acheter* · *vendre*",
-        "— *rang* (passer un grade) · *relations* · *reputation*",
-        "— *difficulte <mode>* · *sauvegarde* · *supprimer*",
-        "",
-        "⚔️ *En combat* : écris ton PAVÉ librement (utilise tes vrais jutsu/objets) · *fuir* · *pause*",
-        "⏸️ *pause* / ▶️ *resume* — sauver & quitter / reprendre",
-        "🤝 *coop* creer|rejoindre <code>|combat|quitter — jouer à plusieurs (boss partagé)",
-        "🎬 *principale* — HISTOIRE canon Naruto → Boruto (suivant / combat)",
+        "🎬 *!histoire* — lancer / reprendre ton aventure",
+        "   • *!histoire commencer <pseudo>* — créer ton ninja (clan=, sexe=, prenom=)",
+        "   • *!histoire pause* / *!histoire resume* — mettre en pause / reprendre",
+        "   • *!histoire supprimer* — effacer ton perso",
+        "   • ⚔️ *en combat* : *!histoire <ton pavé d'action>* · *!histoire fuir*",
+        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
+        "👤 *!perso* — ta fiche · *!ameliorer <stat>* — répartir tes points",
+        "🌀 *!techniques* · 🎒 *!inventaire* · *!objet <nom>*",
+        "🗺️ *!lieux* · *!voyager <lieu>* · *!explorer* · *!aventurer*",
+        "📜 *!mission* — missions · *!mission <n>* · *!abandonner*",
+        "🏋️ *!entrainer <type>* · 📖 *!apprendre <tech>*",
+        "🍙 *!manger* · 🥤 *!boire* · 😴 *!dormir [h]*",
+        "🏪 *!echoppe [nom]* · *!echoppe acheter <boutique> <objet>* · *!echoppe vendre <objet>*",
+        "🎖️ *!promotion* — passer un grade · 🤝 *!relations* · 🏅 *!reputation*",
+        "🐉 *!coop* creer|rejoindre <code>|combat|quitter — boss à plusieurs",
+        "🎞️ *!principale* — HISTOIRE canon Naruto → Boruto (suivant / combat)",
+        "⚙️ *!difficulte <mode>* · ☠️ *!mortpermanente <on/off>* · 💾 *!sauvegarde*",
+        "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
         "Clans : " + Object.keys(CLANS).filter(c => c !== "sans-clan").join(", "),
     ].join("\n");
 }
 
-module.exports = { run, resolvePseudo };
+// Lance une action précise du mode Histoire depuis sa PROPRE commande (ex: !perso, !mission).
+// Contrairement à run() via !histoire, le texte n'est jamais interprété comme un pavé de combat.
+async function runSub(sender, sub, arg) {
+    return run({ sender, sub: (sub || "").toLowerCase(), arg: arg || "", _fromSub: true });
+}
+
+module.exports = { run, runSub, resolvePseudo, aide };

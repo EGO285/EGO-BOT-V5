@@ -20,9 +20,13 @@ module.exports = {
   🎭 *!persona* pour changer mon ton
 
 ╭──「 🍥 MODE HISTOIRE RPG 」
-│ 📖 !histoire — RPG Naruto persistant
-│ 🥷 crée ton ninja, genin → légende
-│ ⚔️ combats, missions, entraînement
+│ 📖 !histoire — lancer / reprendre
+│ ⚔️ !histoire <pavé> — agir en combat
+│ 👤 !perso · 🌀 !techniques · 🎒 !inventaire
+│ 🗺️ !lieux · !voyager · !explorer · !aventurer
+│ 📜 !mission · 🏋️ !entrainer · 🎞️ !principale
+│ 🏪 !echoppe · 🎖️ !promotion · 🐉 !coop
+│ 📘 !guide — toutes les commandes
 ╰───────────────
 
 ╭──「 🧠 E.V.O · IA 」
