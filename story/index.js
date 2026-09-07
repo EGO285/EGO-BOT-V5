@@ -612,8 +612,13 @@ async function doMission(oc, arg) {
     if (!arg) {
         if (oc.quete) return { text: `📜 *MISSION EN COURS*\n${oc.quete.titre} [${oc.quete.rang}] — ${oc.quete.desc}\nLieu : ${LOCATIONS[oc.quete.lieu]?.nom || oc.quete.lieu}\n\n👉 *!histoire mission ${oc.quete.ennemi ? "combattre" : "finir"}*` };
         const dispo = missions.disponibles(oc);
-        const l = dispo.map((m, i) => `${i + 1}. [${m.rang}] *${m.titre}* — ${m.desc} (${m.recompense.ryo}💴)`).join("\n");
-        return { text: `📋 *MISSIONS DISPONIBLES* (rang ${oc.identite.rang})\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${l}\n\n👉 *!histoire mission <numéro>* pour accepter.` };
+        // Échantillon de 10 missions (avec leur numéro réel), renouvelé à chaque appel.
+        const echantillon = dispo.map((m, i) => [i, m])
+            .sort(() => Math.random() - 0.5).slice(0, 10)
+            .sort((a, b) => a[0] - b[0]);
+        const l = echantillon.map(([i, m]) => `${i + 1}. [${m.rang}] *${m.titre}* — ${m.desc} _(${m.recompense.ryo}💴${m.ennemi ? " ⚔️" : ""})_`).join("\n");
+        const reste = dispo.length - echantillon.length;
+        return { text: `📋 *MISSIONS DISPONIBLES* — classe *${oc.identite.rang}*\n_(${dispo.length} au total)_\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n${l}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n👉 *!histoire mission <numéro>* pour accepter${reste > 0 ? `\n🔄 refais *!histoire mission* pour d'autres propositions (${reste} de plus)` : ""}` };
     }
     if (/^\d+$/.test(arg)) { const r = missions.accepter(oc, parseInt(arg) - 1); return { text: r.ok ? `✅ Mission acceptée : *${r.mission.titre}*.\nRends-toi sur les lieux puis *!histoire mission ${r.mission.ennemi ? "combattre" : "finir"}*.` : `❌ ${r.error}` }; }
     if (arg === "combattre") {
