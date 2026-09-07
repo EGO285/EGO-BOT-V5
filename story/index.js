@@ -21,12 +21,27 @@ const render = require("./ui/render");
 const gm = require("./ai/gm");
 const arsenal = require("./engine/arsenal");
 const combatgm = require("./ai/combatgm");
+const rng = require("./engine/rng");
+
+// Événement inattendu pouvant survenir pendant un tour de combat.
+function combatTwist(oc, enemy) {
+    if (!rng.chance(0.13)) return null;
+    const pool = [
+        () => { const h = Math.round(enemy.pvMax * 0.12); enemy.pv = Math.min(enemy.pvMax, enemy.pv + h); return `⚡ *Imprévu* : ${enemy.nom} trouve un second souffle et récupère ${h} PV !`; },
+        () => { const d = Math.max(2, Math.round(oc.stats.pvMax * 0.06)); oc.vitals.pv = Math.max(1, oc.vitals.pv - d); return `⚡ *Imprévu* : le terrain se dérobe, tu encaisses ${d} dégâts !`; },
+        () => { const d = Math.round(enemy.pvMax * 0.10); enemy.pv = Math.max(0, enemy.pv - d); return `⚡ *Imprévu* : une ouverture inespérée ! Tu infliges ${d} dégâts bonus.`; },
+        () => { const c = Math.round(oc.stats.chakraMax * 0.15); oc.vitals.chakra = Math.min(oc.stats.chakraMax, oc.vitals.chakra + c); return `⚡ *Imprévu* : un afflux de chakra te revigore (+${c}).`; },
+        () => { return `⚡ *Imprévu* : un ninja masqué observe le combat depuis les ombres...`; },
+    ];
+    return rng.pick(pool)();
+}
 const { JUTSU } = require("./data/jutsu");
 const { CLANS } = require("./data/clans");
 const { loc, LOCATIONS } = require("./data/locations");
 const { SHOPS, ITEMS } = require("./data/items");
 const { NPCS } = require("./data/npcs");
 const { BOSSES } = require("./data/bosses");
+const { CHAPTERS } = require("./data/campaign");
 let getUser = null;
 try { ({ getUser } = require("../utils/users")); } catch (e) {}
 
@@ -42,6 +57,7 @@ const KNOWN_SUBS = new Set([
     "attaquer", "jutsu", "defendre", "défendre", "esquiver", "fuir", "analyser",
     "aventurer", "frontiere", "frontière", "inconnu",
     "pause", "resume", "coop",
+    "principale", "canon", "story", "campagne",
     "commencer", "start", "creer", "créer", "nouveau",
 ]);
 
@@ -217,6 +233,7 @@ async function run(ctx) {
             return { text: `${narr}\n\n🎖️ *PROMOTION !* Tu es désormais *${pr.rang.nom}* (+${pr.rang.points} points, PV et chakra en hausse).${tick(oc)}` };
         }
         case "coop": out = await doCoop(oc, arg, pseudo); if (out.save !== false) await db.saveOC(pseudo, oc); return out;
+        case "principale": case "canon": case "story": case "campagne": out = await doPrincipale(oc, arg, pseudo); await db.saveOC(pseudo, oc); return out;
         case "sauvegarde": case "save": await db.saveOC(pseudo, oc); return { text: "💾 Partie sauvegardée." };
         case "abandonner": { const r = missions.abandonner(oc); await db.saveOC(pseudo, oc); return { text: r.ok ? `🏳️ Mission « ${r.titre} » abandonnée (réputation -5).` : `❌ ${r.error}` }; }
         case "difficulte": case "difficulté": {
@@ -273,6 +290,14 @@ async function doCombat(oc, sub, arg) {
     return { text: `${narr}\n\n${renderCombat(oc, r.log)}` };
 }
 
+// Accorde une récompense de campagne (xp carrière + niveau + ryo).
+function grantReward(oc, rec) {
+    if (!rec) return;
+    oc.ryo = (oc.ryo || 0) + (rec.ryo || 0);
+    oc.xpCarriere = (oc.xpCarriere || 0) + (rec.xp || 0);
+    progression.addXP(oc, rec.xp || 0);
+}
+
 // ---- Fins de combat réutilisables ----
 async function endVictory(oc, enemy, narr) {
     const enemyNom = enemy.nom;
@@ -282,7 +307,67 @@ async function endVictory(oc, enemy, narr) {
     if (rec.lvl.niveauxGagnes.length) msg += `\n⬆️ Niveau ${rec.lvl.niveau} atteint !`;
     if (oc._missionCombat && oc.quete) { const mrec = missions.recompenser(oc, oc.quete); msg += `\n\n🎉 *MISSION ACCOMPLIE* : +${mrec.ryo}💴 · +${mrec.xp} XP`; }
     oc._missionCombat = false;
+    // Chapitre d'histoire principale accompli ?
+    if (oc._campaignCombat) {
+        oc._campaignCombat = false;
+        if (!oc.campagne) oc.campagne = { i: 0 };
+        const chap = CHAPTERS[oc.campagne.i];
+        if (chap && chap.recompense) { grantReward(oc, chap.recompense); msg += `\n\n🎬 *CHAPITRE ACCOMPLI* : ${chap.titre} (+${chap.recompense.xp} XP)`; }
+        oc.campagne.i += 1;
+        msg += oc.campagne.i < CHAPTERS.length ? `\n➡️ Suite de l'histoire : *!histoire principale*` : `\n🏆 *Tu as terminé TOUTE l'Histoire Principale !* Légende éternelle.`;
+    }
     return { text: `${narr ? `🎴 ${narr}\n\n` : ""}${msg}${tick(oc)}` };
+}
+
+// ============================================================
+//  HISTOIRE PRINCIPALE (canon Naruto → Boruto: Two Blue Vortex)
+// ============================================================
+async function doPrincipale(oc, arg, pseudo) {
+    if (!oc.campagne) oc.campagne = { i: 0 };
+    const total = CHAPTERS.length;
+    const a = (arg || "").toLowerCase();
+
+    if (oc.campagne.i >= total) {
+        return { text: "🏆 *HISTOIRE PRINCIPALE TERMINÉE*\nDe l'Académie jusqu'au Tourbillon Bleu, tu as tout traversé. Ton nom est une légende éternelle du monde ninja. 🍥" };
+    }
+    let chap = CHAPTERS[oc.campagne.i];
+
+    // Avancer une scène narrative
+    if (a === "suivant" || a === "continuer") {
+        if (chap.type === "scene") {
+            grantReward(oc, chap.recompense);
+            oc.campagne.i += 1;
+            if (oc.campagne.i >= total) return { text: "🏆 *HISTOIRE PRINCIPALE TERMINÉE* — Légende éternelle ! 🍥" };
+            chap = CHAPTERS[oc.campagne.i];
+        } else {
+            return { text: `⚔️ Ce chapitre est un combat. Lance-le : *!histoire principale combat*.` };
+        }
+    }
+
+    // Démarrer le combat du chapitre
+    if ((a === "combat" || a === "go" || a === "affronter") && chap.type === "combat") {
+        oc._campaignCombat = true;
+        const def = BOSSES[chap.ennemi] || npcAsEnemy(chap.ennemi);
+        const rangHint = combatConseil(oc, def);
+        const intro = `[${chap.arc}] ${chap.titre}. ${chap.texte}`;
+        const fight = await startFight(oc, def, intro);
+        return { text: rangHint + fight.text };
+    }
+
+    // Affichage du chapitre courant
+    const narr = await withNarration(oc, `[${chap.arc}] ${chap.titre}. ${chap.texte}`, { consigne: "Raconte ce moment culte de Naruto en y intégrant le personnage du joueur, de façon immersive et fidèle à l'univers." });
+    const suite = chap.type === "scene"
+        ? "▶️ *!histoire principale suivant* pour continuer l'histoire"
+        : `⚔️ *!histoire principale combat* pour affronter *${(BOSSES[chap.ennemi] || {}).nom || chap.ennemi}*`;
+    return { text: `🎬 *HISTOIRE PRINCIPALE*  —  Chapitre ${oc.campagne.i + 1}/${total}\n🏷️ Arc : ${chap.arc}\n▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔\n📖 *${chap.titre}*\n\n${narr}\n\n${suite}` };
+}
+
+// Avertit si l'ennemi de campagne semble hors de portée.
+function combatConseil(oc, def) {
+    const ecart = (def.niveau || 5) - oc.niveau;
+    if (ecart >= 15) return `⚠️ *${def.nom}* est BIEN plus fort que toi (niv ${def.niveau} vs ${oc.niveau}). Entraîne-toi et monte en rang avant, ou tente ta chance...\n\n`;
+    if (ecart >= 8) return `⚠️ *${def.nom}* est nettement plus fort — prépare-toi bien.\n\n`;
+    return "";
 }
 async function endDefeat(oc, enemy, narr) {
     oc._missionCombat = false;
@@ -298,6 +383,10 @@ async function doCombatIA(oc, pave, pseudo) {
     const usage = arsenal.detect(oc, pave);
     const r = await combatgm.resolve(oc, enemy, pave, usage);
     oc.combat.tour = (oc.combat.tour || 1) + 1;
+
+    // Événement inattendu possible ce tour-ci
+    const twist = combatTwist(oc, enemy);
+    if (twist) r.narration = `${r.narration}\n${twist}`;
 
     // Fin : ennemi vaincu (gère les phases de boss)
     if (enemy.pv <= 0) {
@@ -530,9 +619,21 @@ async function doMission(oc, arg) {
     if (arg === "combattre") {
         if (!oc.quete) return { text: "Aucune mission en cours." };
         if (!oc.quete.ennemi) return { text: "Cette mission ne comporte pas d'ennemi. Fais *!histoire mission finir*." };
-        const def = BOSSES[oc.quete.ennemi] || npcAsEnemy(oc.quete.ennemi);
+        const def = { ...(BOSSES[oc.quete.ennemi] || npcAsEnemy(oc.quete.ennemi)) }; // clone (twist safe)
+        let intro = `Tu affrontes l'objectif de ta mission : ${def.nom}.`;
+        // Événement inattendu de mission
+        if (rng.chance(0.4)) {
+            const twists = [
+                () => { def.pv = Math.round(def.pv * 1.25); return "🚨 Imprévu : des renforts rejoignent l'ennemi, il est plus coriace que prévu !"; },
+                () => { def.pv = Math.round(def.pv * 0.8); return "🎯 Imprévu : tu prends ta cible par surprise — elle démarre affaiblie."; },
+                () => { oc.vitals.pv = Math.min(oc.stats.pvMax, oc.vitals.pv + 30); return "🤝 Imprévu : un allié de passage soigne tes blessures avant l'assaut (+30 PV)."; },
+                () => { oc.vitals.chakra = Math.max(0, oc.vitals.chakra - 20); return "🪤 Imprévu : un piège se déclenche, tu perds un peu de chakra (-20)."; },
+                () => { def.niveau = (def.niveau || 5) + 3; def.stats = { ...def.stats, force: (def.stats.force || 5) + 3 }; return "😈 Imprévu : l'ennemi révèle sa vraie force !"; },
+            ];
+            intro = `${rng.pick(twists)()}\n\n${intro}`;
+        }
         oc._missionCombat = true;
-        return startFight(oc, def, `Tu affrontes l'objectif de ta mission : ${def.nom}.`);
+        return startFight(oc, def, intro);
     }
     if (arg === "finir") {
         const r = missions.resoudreNonCombat(oc);
@@ -665,6 +766,7 @@ function aide() {
         "⚔️ *En combat* : écris ton PAVÉ librement (utilise tes vrais jutsu/objets) · *fuir* · *pause*",
         "⏸️ *pause* / ▶️ *resume* — sauver & quitter / reprendre",
         "🤝 *coop* creer|rejoindre <code>|combat|quitter — jouer à plusieurs (boss partagé)",
+        "🎬 *principale* — HISTOIRE canon Naruto → Boruto (suivant / combat)",
         "Clans : " + Object.keys(CLANS).filter(c => c !== "sans-clan").join(", "),
     ].join("\n");
 }

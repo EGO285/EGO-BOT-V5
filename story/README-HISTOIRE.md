@@ -43,6 +43,19 @@ rencontres aléatoires contrôlées · temps/calendrier/météo/jour-nuit · PNJ
 réputations · mentors (apprentissage sous condition de relation) · KO/mort selon difficulté ·
 sauvegarde auto Upstash + logs · narration IA optionnelle avec repli.
 
+## 🎬 Histoire Principale (canon Naruto → Boruto: Two Blue Vortex)
+`!histoire principale` fait vivre à ton OC la trame canon, chapitre par chapitre : Académie →
+trahison de Mizuki → Pays des Vagues (Zabuza, Haku) → Examen Chūnin (Gaara) → Konoha Crush →
+Shippūden (Deidara, Kakuzu, Itachi, Pain) → Grande Guerre (Obito, Madara, Kaguya) → The Last
+(Toneri) → Boruto (Momoshiki) → Kara (Isshiki) → **Two Blue Vortex (Code)**.
+Les scènes s'enchaînent avec *!histoire principale suivant* ; les combats de boss avec
+*!histoire principale combat*. Chaque chapitre gagné débloque le suivant et donne de gros gains.
+26 chapitres, 12 arcs — extensible via `story/data/campaign.js`.
+
+## ⚔️ Ripostes & imprévus
+- **Ripostes ennemies** : à chaque tour, l'ennemi contre-attaque avec SES propres jutsu selon son niveau et la difficulté.
+- **Événements inattendus** : les missions et les combats peuvent déclencher des imprévus (renforts, ouvertures, pièges, second souffle de l'ennemi...).
+
 ## 🌍 Open-world procédural (généré par IA)
 `!histoire aventurer` fait partir ton ninja **vers l'inconnu** : l'IA (Hugging Face) **génère un
 nouveau lieu** (nom, description, ambiance, type), le moteur **valide et borne** les valeurs

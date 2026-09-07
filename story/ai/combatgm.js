@@ -10,6 +10,22 @@ try { evoAI = require("../../utils/evoAI"); } catch (e) {}
 const rng = require("../engine/rng");
 const { eff } = require("../engine/stats");
 const inv = require("../engine/inventory");
+const { JUTSU } = require("../data/jutsu");
+
+// L'ennemi choisit sa riposte : un de SES jutsu (s'il a le chakra) ou le taijutsu.
+function enemyMove(enemy) {
+    const techs = enemy.techniques || [];
+    if (techs.length && (enemy.chakra || 0) >= 15 && rng.chance(0.5)) {
+        const t = rng.pick(techs);
+        const j = JUTSU[t];
+        const nom = j ? j.nom : String(t);
+        const cout = j ? j.cout : 20;
+        const power = (j && j.degats > 0) ? j.degats * (1 + (enemy.stats.ninjutsu || 5) / 50) : 35 + (enemy.stats.ninjutsu || 5);
+        enemy.chakra = Math.max(0, (enemy.chakra || 0) - cout);
+        return { type: "jutsu", nom, power };
+    }
+    return { type: "taijutsu", nom: "un assaut au corps à corps", power: 3 + (enemy.stats.force || 5) + (enemy.stats.taijutsu || 5) * 1.5 };
+}
 
 const DIFF = {
     narratif: { pMul: 1.25, eMul: 0.55 },
@@ -58,8 +74,9 @@ async function resolve(oc, enemy, pave, usage) {
     const basePhysique = 8 + eff(oc, "force") * 1.5 + eff(oc, "taijutsu") * 2.5;
     let maxP = Math.round(Math.max(meilleurJutsu, basePhysique) * diff.pMul);
     if (immobile) maxP = 0;
-    const enemyOff = 3 + (enemy.stats.force || 5) + (enemy.stats.taijutsu || 5) * 1.5 + (enemy.stats.ninjutsu || 5) * 0.8;
-    let maxS = Math.round(enemyOff * diff.eMul);
+    // Riposte de l'ennemi : il choisit SON action (jutsu ou taijutsu).
+    const eMove = enemyMove(enemy);
+    let maxS = Math.round(eMove.power * diff.eMul);
     if (immobile) maxS = Math.round(maxS * 1.4); // exposé
 
     // 5) Résolution : IA si dispo, sinon déterministe.
@@ -77,13 +94,15 @@ async function resolve(oc, enemy, pave, usage) {
                 tentatives_impossibles: invalid,      // jutsu/outils NON possédés
                 objets_utilises: itemsUsed,
                 immobile,
+                riposte_ennemi: eMove.nom,            // l'ennemi contre-attaque avec CECI
                 bornes: { degats_infliges_max: maxP, degats_subis_max: maxS },
             };
             const user = [
                 `ACTION DU JOUEUR (pavé) : "${pave}"`,
                 `ÉTAT: ${JSON.stringify(ctx)}`,
+                `L'ennemi RIPOSTE avec : ${eMove.nom}. Décris sa contre-attaque.`,
                 immobile
-                    ? "Le joueur a tenté d'utiliser une technique/un objet qu'il NE POSSÈDE PAS et n'a rien fait de valide : il est donc IMMOBILE/à découvert. degats_infliges DOIT être 0, et l'ennemi en profite."
+                    ? "Le joueur a tenté d'utiliser une technique/un objet qu'il NE POSSÈDE PAS et n'a rien fait de valide : il est donc IMMOBILE/à découvert. degats_infliges DOIT être 0, et l'ennemi en profite pleinement."
                     : "Résous l'échange en respectant STRICTEMENT les bornes.",
                 `Réponds ce JSON : {"narration": string immersive (2-4 phrases), "degats_infliges": entier 0..${maxP}, "degats_subis": entier 0..${maxS}, "statut": courte étiquette (ex: "touché", "esquivé", "contré", "immobilisé")}.`,
             ].join("\n");
@@ -102,9 +121,9 @@ async function resolve(oc, enemy, pave, usage) {
         // Repli déterministe.
         dP = immobile ? 0 : clamp(rng.variance(maxP * 0.6, 0.25), 0, maxP);
         dS = clamp(rng.variance(maxS * (immobile ? 0.9 : 0.5), 0.3), 0, maxS);
-        if (immobile) narration = `Tu tentes une technique que tu ne maîtrises pas... ton geste avorte et tu restes exposé ! ${enemy.nom} en profite.`;
-        else if (landed.length) narration = `Tu enchaînes ${landed.map(j => j.nom).join(", ")} ! ${dP > 0 ? `${enemy.nom} encaisse.` : `${enemy.nom} se protège.`}`;
-        else narration = `Tu passes à l'attaque au corps à corps. ${dP > 0 ? "Le coup porte." : "L'adversaire pare."}`;
+        if (immobile) narration = `Tu tentes une technique que tu ne maîtrises pas... ton geste avorte et tu restes exposé ! ${enemy.nom} riposte avec ${eMove.nom}.`;
+        else if (landed.length) narration = `Tu enchaînes ${landed.map(j => j.nom).join(", ")} ! ${dP > 0 ? `${enemy.nom} encaisse` : `${enemy.nom} se protège`}, puis contre-attaque avec ${eMove.nom}.`;
+        else narration = `Tu passes à l'attaque. ${dP > 0 ? "Le coup porte" : "L'adversaire pare"} — ${enemy.nom} réplique avec ${eMove.nom}.`;
         statut = immobile ? "immobilisé" : (dP > 0 ? "touché" : "paré");
     }
 
