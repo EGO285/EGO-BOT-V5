@@ -31,7 +31,15 @@ module.exports = {
             if (img?.tooLarge) {
                 return sock.sendMessage(from, { text: "🖼️ L'image est trop lourde pour que je l'analyse (max ~4 Mo). Renvoie-la en qualité réduite.", mentions: [senderJid] });
             }
-            if (img?.dataUrl) opts.imageDataUrl = img.dataUrl;
+            if (img?.dataUrl) {
+                opts.imageDataUrl = img.dataUrl;
+            } else {
+                // Le téléchargement de l'image a échoué (pas un problème de modèle vision).
+                return sock.sendMessage(from, {
+                    text: "🖼️ J'ai bien vu qu'il y a une image, mais je n'ai pas réussi à la *télécharger*.\n⚠️ Souvent : image envoyée « en vue unique », déjà expirée, ou souci réseau WhatsApp.\n👉 Réessaie : renvoie l'image directement avec la légende *!evo décris cette image* (pas en réponse à un vieux message).",
+                    mentions: [senderJid],
+                });
+            }
         }
 
         // 2) Conscience de soi : commandes + base de données (si la question s'y prête)

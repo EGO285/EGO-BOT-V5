@@ -294,6 +294,24 @@ async function startBot() {
         // FIX 14 — ignore les messages envoyés PAR le bot lui-même
         if (m.key.fromMe) return;
 
+        // FIX 16 — DÉBALLAGE des enveloppes WhatsApp.
+        // Une image avec légende, un message éphémère (disparition auto) ou "vue unique"
+        // arrivent emballés : le vrai imageMessage (et sa légende !evo) est enfoui.
+        // Sans ça, le bot ne voit ni la commande ni l'image → "rien ne se passe".
+        (function unwrap() {
+            for (let i = 0; i < 5; i++) {
+                const inner =
+                    m.message.ephemeralMessage?.message ||
+                    m.message.viewOnceMessage?.message ||
+                    m.message.viewOnceMessageV2?.message ||
+                    m.message.viewOnceMessageV2Extension?.message ||
+                    m.message.documentWithCaptionMessage?.message ||
+                    m.message.editedMessage?.message;
+                if (!inner) break;
+                m.message = inner;
+            }
+        })();
+
         const msg = m.message;
 
         const text =
@@ -301,6 +319,7 @@ async function startBot() {
             msg.extendedTextMessage?.text ||
             msg.imageMessage?.caption ||
             msg.videoMessage?.caption ||
+            msg.documentMessage?.caption ||
             "";
 
         const cleanText = text.toLowerCase().trim();
@@ -334,7 +353,15 @@ async function startBot() {
                     });
                     return;
                 }
-                cmd.handler(sock, m, cleanText, { senderJid, senderNumber, isAdmin });
+                Promise.resolve()
+                    .then(() => cmd.handler(sock, m, cleanText, { senderJid, senderNumber, isAdmin }))
+                    .catch((e) => {
+                        console.error(`⚠️ Erreur dans la commande ${cmd.command} :`, e);
+                        sock.sendMessage(from, {
+                            text: `⚠️ @${senderNumber} un souci est survenu sur *${cmd.command}*.\n⚙️ ${String(e?.message || e).slice(0, 160)}`,
+                            mentions: [senderJid],
+                        }).catch(() => {});
+                    });
                 break;
             }
         }
