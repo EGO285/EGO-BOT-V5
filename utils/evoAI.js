@@ -27,10 +27,37 @@ const { SUMMARY, KNOWLEDGE, CARD_RULES, ARBITRE_SYSTEM } = require("./shinobiLor
 const { personaSystem, DEFAULT_KEY } = require("./evoPersona");
 
 const HF_TOKEN = process.env.HF_TOKEN || "";
-const HF_MODEL = process.env.HF_MODEL || "meta-llama/Llama-3.1-8B-Instruct";
-const HF_VISION_MODEL = process.env.HF_VISION_MODEL || "meta-llama/Llama-3.2-11B-Vision-Instruct";
+const HF_MODEL = process.env.HF_MODEL || "Qwen/Qwen2.5-72B-Instruct";
+const HF_VISION_MODEL = process.env.HF_VISION_MODEL || "Qwen/Qwen2.5-VL-7B-Instruct";
+// Liste de repli : si le modèle vision configuré n'est pas dispo chez ton
+// fournisseur, on essaie les suivants automatiquement. Le 1er = ta variable .env.
+const VISION_CANDIDATES = [...new Set([
+    HF_VISION_MODEL,
+    "Qwen/Qwen2.5-VL-7B-Instruct",
+    "Qwen/Qwen2.5-VL-72B-Instruct",
+    "meta-llama/Llama-3.2-11B-Vision-Instruct",
+    "zai-org/GLM-4.5V",
+].filter(Boolean))];
 const HF_URL = "https://router.huggingface.co/v1/chat/completions";
 const TIMEOUT_MS = 30000;
+
+// Essaie chaque modèle vision jusqu'à ce qu'un réponde. Lance la dernière
+// erreur si tous échouent (pour l'afficher au joueur).
+async function callVision(messages) {
+    let lastErr = null;
+    for (const model of VISION_CANDIDATES) {
+        try {
+            return { rep: await callHF(model, messages), model };
+        } catch (e) {
+            lastErr = e;
+            const d = e.response?.data?.error || e.message || "";
+            console.error(`⚠️ Vision KO (${model}) :`, typeof d === "string" ? d : JSON.stringify(d));
+            // 401/403 = problème de token/permissions : inutile d'essayer les autres.
+            if (e.response?.status === 401 || e.response?.status === 403) break;
+        }
+    }
+    throw lastErr || new Error("Aucun modèle vision disponible");
+}
 
 const MAX_TOURS = parseInt(process.env.EVO_MAX_TOURS) || 12;
 const DUEL_MAX_TOURS = 20; // l'arbitre garde plus de contexte (mémoire de combat)
@@ -151,7 +178,8 @@ async function askEVO(scopeId, message, opts = {}) {
                     ],
                 },
             ];
-            reponse = await callHF(HF_VISION_MODEL, messages);
+            const vr = await callVision(messages);
+            reponse = vr.rep;
             historique.push({ role: "user", content: (msg || "[image envoyée]") + " (image analysée)" });
         } else {
             // ── Mode TEXTE ──
@@ -168,10 +196,12 @@ async function askEVO(scopeId, message, opts = {}) {
         await saveHist(key, historique, MAX_TOURS);
         return { text: reponse, source: "hf" };
     } catch (e) {
-        const detail = e.response?.data?.error || e.message;
+        let detail = e.response?.data?.error || e.message;
+        if (detail && typeof detail !== "string") detail = detail.message || JSON.stringify(detail);
         console.error("⚠️ E.V.O IA indisponible, repli local :", detail);
         if (opts.imageDataUrl) {
-            return { text: "🖼️ Je vois bien que tu m'as envoyé une image, mais mon module de vision est indisponible pour le moment (quota ou modèle occupé). Réessaie dans un instant.", source: "local" };
+            const raison = String(detail || "").slice(0, 180);
+            return { text: `🖼️ Je n'arrive pas à analyser l'image.\n⚙️ Raison exacte : ${raison}\n\n_(souvent : le modèle vision n'est pas activé chez ton fournisseur HF, ou ton token n'a pas le droit « Inference Providers ». Vérifie HF_VISION_MODEL sur Render.)_`, source: "local" };
         }
         return { text: evoChat(msg), source: "local" };
     }
@@ -210,7 +240,7 @@ async function askArbitre(duelId, action, opts = {}) {
                     { type: "image_url", image_url: { url: opts.imageDataUrl } },
                 ] },
             ];
-            reponse = await callHF(HF_VISION_MODEL, messages);
+            reponse = (await callVision(messages)).rep;
             historique.push({ role: "user", content: (act || "[carte envoyée]") + " (image analysée)" });
         } else {
             const messages = [
