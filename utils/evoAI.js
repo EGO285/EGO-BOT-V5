@@ -26,19 +26,57 @@ const { evoChat } = require("./evoVoice");
 const { SUMMARY, KNOWLEDGE, CARD_RULES, ARBITRE_SYSTEM } = require("./shinobiLore");
 const { personaSystem, DEFAULT_KEY } = require("./evoPersona");
 
-const HF_TOKEN = process.env.HF_TOKEN || "";
-const HF_MODEL = process.env.HF_MODEL || "Qwen/Qwen2.5-72B-Instruct";
-const HF_VISION_MODEL = process.env.HF_VISION_MODEL || "Qwen/Qwen2.5-VL-7B-Instruct";
-// Liste de repli : si le modèle vision configuré n'est pas dispo chez ton
-// fournisseur, on essaie les suivants automatiquement. Le 1er = ta variable .env.
-const VISION_CANDIDATES = [...new Set([
-    HF_VISION_MODEL,
-    "Qwen/Qwen2.5-VL-7B-Instruct",
-    "Qwen/Qwen2.5-VL-72B-Instruct",
-    "meta-llama/Llama-3.2-11B-Vision-Instruct",
-    "zai-org/GLM-4.5V",
-].filter(Boolean))];
-const HF_URL = "https://router.huggingface.co/v1/chat/completions";
+// ── FOURNISSEUR IA (multi-backend, tous compatibles OpenAI) ──
+// Choisis via AI_PROVIDER : hf | openrouter | groq | gemini | custom.
+// Chaque fournisseur lit SA propre clé. openrouter/gemini/groq ont un tier GRATUIT
+// (texte ET vision) — pratique quand les crédits Hugging Face sont épuisés.
+const AI_PROVIDER = (process.env.AI_PROVIDER || "hf").toLowerCase();
+
+const PRESETS = {
+    hf: {
+        url: "https://router.huggingface.co/v1/chat/completions",
+        key: process.env.HF_TOKEN,
+        model: "Qwen/Qwen2.5-72B-Instruct",
+        vision: "Qwen/Qwen2.5-VL-7B-Instruct",
+        visionList: ["Qwen/Qwen2.5-VL-7B-Instruct", "Qwen/Qwen2.5-VL-72B-Instruct", "meta-llama/Llama-3.2-11B-Vision-Instruct", "google/gemma-3-27b-it", "zai-org/GLM-4.5V"],
+    },
+    openrouter: {
+        url: "https://openrouter.ai/api/v1/chat/completions",
+        key: process.env.OPENROUTER_KEY || process.env.AI_KEY,
+        model: "meta-llama/llama-3.3-70b-instruct:free",
+        vision: "meta-llama/llama-3.2-11b-vision-instruct:free",
+        visionList: ["meta-llama/llama-3.2-11b-vision-instruct:free", "qwen/qwen2.5-vl-72b-instruct:free", "google/gemini-2.0-flash-exp:free", "google/gemma-3-27b-it:free"],
+    },
+    groq: {
+        url: "https://api.groq.com/openai/v1/chat/completions",
+        key: process.env.GROQ_KEY || process.env.AI_KEY,
+        model: "llama-3.3-70b-versatile",
+        vision: "meta-llama/llama-4-scout-17b-16e-instruct",
+        visionList: ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"],
+    },
+    gemini: {
+        url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        key: process.env.GEMINI_KEY || process.env.AI_KEY,
+        model: "gemini-2.0-flash",
+        vision: "gemini-2.0-flash",
+        visionList: ["gemini-2.0-flash", "gemini-2.5-flash"],
+    },
+    custom: {
+        url: process.env.AI_BASE_URL,
+        key: process.env.AI_KEY,
+        model: process.env.HF_MODEL,
+        vision: process.env.HF_VISION_MODEL,
+        visionList: [process.env.HF_VISION_MODEL].filter(Boolean),
+    },
+};
+const P = PRESETS[AI_PROVIDER] || PRESETS.hf;
+
+const HF_URL = process.env.AI_BASE_URL || P.url;
+const HF_TOKEN = process.env.AI_KEY || P.key || process.env.HF_TOKEN || "";
+const HF_MODEL = process.env.HF_MODEL || process.env.AI_MODEL || P.model;
+const HF_VISION_MODEL = process.env.HF_VISION_MODEL || process.env.AI_VISION_MODEL || P.vision;
+// Liste de repli vision : le modèle configuré d'abord, puis ceux du fournisseur.
+const VISION_CANDIDATES = [...new Set([HF_VISION_MODEL, ...(P.visionList || [])].filter(Boolean))];
 const TIMEOUT_MS = 30000;
 
 // Essaie chaque modèle vision jusqu'à ce qu'un réponde. Lance la dernière
@@ -127,12 +165,18 @@ async function delHist(key) {
     delete ramHistory[key];
 }
 
-// ── Appel générique Hugging Face ────────────────────────────
+// ── Appel générique (compatible OpenAI : HF / OpenRouter / Groq / Gemini) ──
 async function callHF(model, messages) {
+    const headers = { Authorization: `Bearer ${HF_TOKEN}`, "Content-Type": "application/json" };
+    // OpenRouter apprécie ces en-têtes (facultatifs mais recommandés).
+    if (AI_PROVIDER === "openrouter") {
+        headers["HTTP-Referer"] = "https://evo-bot.local";
+        headers["X-Title"] = "E.V.O";
+    }
     const { data } = await axios.post(
         HF_URL,
         { model, messages, max_tokens: 500, temperature: 0.8, top_p: 0.95, stream: false },
-        { headers: { Authorization: `Bearer ${HF_TOKEN}`, "Content-Type": "application/json" }, timeout: TIMEOUT_MS }
+        { headers, timeout: TIMEOUT_MS }
     );
     const rep = data?.choices?.[0]?.message?.content?.trim();
     if (!rep) throw new Error("Réponse vide du modèle");
